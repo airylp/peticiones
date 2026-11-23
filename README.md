@@ -3,6 +3,14 @@
 Cliente de peticiones HTTP y SOAP de escritorio (Rust + egui), ligero, para probar APIs y
 compartir colecciones como carpetas de texto.
 
+## Instalar
+
+macOS y Linux (descarga la última versión publicada; vuelve a ejecutarlo para actualizar o desinstalar):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/airylp/peticiones/main/install.sh | sh
+```
+
 ## Descargar
 
 Prototipo en [Releases](https://github.com/airylp/peticiones/releases): macOS (universal), Windows y
