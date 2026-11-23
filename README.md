@@ -11,6 +11,14 @@ macOS y Linux (descarga la última versión publicada; vuelve a ejecutarlo para 
 curl -fsSL https://raw.githubusercontent.com/airylp/peticiones/main/install.sh | sh
 ```
 
+Para compilarlo en tu equipo con lo último de `main` (instala Rust con rustup si falta):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/airylp/peticiones/main/install.sh | sh -s -- compilar
+```
+
+Si no hay versión publicada para tu equipo (p. ej. Linux ARM), el instalador compila automáticamente.
+
 ## Descargar
 
 Prototipo en [Releases](https://github.com/airylp/peticiones/releases): macOS (universal), Windows y
