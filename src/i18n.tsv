@@ -1,0 +1,163 @@
+# español	inglés	francés (\n = salto de línea; mismas {marcas} en las tres columnas)
+Ajustes	Settings	Réglages
+Cerrar el espacio	Close the space	Fermer l'espace
+Copiar	Copy	Copier
+Cancelar	Cancel	Annuler
+Guardar	Save	Enregistrer
+Tema	Theme	Thème
+Sistema	System	Système
+Claro	Light	Clair
+Oscuro	Dark	Sombre
+Idioma	Language	Langue
+Renombrar…	Rename…	Renommer…
+Renombrar	Rename	Renommer
+Duplicar	Duplicate	Dupliquer
+falta un valor	missing value	valeur manquante
+valor inesperado «{i}»	unexpected value “{i}”	valeur inattendue «{i}»
+se esperaba una clave entre comillas	expected a quoted key	clé entre guillemets attendue
+se esperaba «:» tras la clave	expected “:” after the key	«:» attendu après la clé
+se esperaba «,» o «{close_as_char}»	expected “,” or “{close_as_char}”	«,» ou «{close_as_char}» attendu
+falta cerrar con «{close_as_char}»	missing closing “{close_as_char}”	fermeture «{close_as_char}» manquante
+secuencia de escape no válida	invalid escape sequence	séquence d'échappement invalide
+salto de línea o carácter de control dentro de una cadena	line break or control character inside a string	saut de ligne ou caractère de contrôle dans une chaîne
+cadena sin cerrar	unterminated string	chaîne non fermée
+número no válido	invalid number	nombre invalide
+faltan decimales	missing decimals	décimales manquantes
+exponente no válido	invalid exponent	exposant invalide
+el texto está vacío	the text is empty	le texte est vide
+{what} sin cerrar	unterminated {what}	{what} non fermé
+instrucción «<?»	“<?” instruction	instruction «<?»
+declaración «<!» sin cerrar	unterminated “<!” declaration	déclaration «<!» non fermée
+etiqueta de cierre mal formada	malformed closing tag	balise de fermeture mal formée
+«<» suelto (en texto se escribe &lt;)	stray “<” (in text write &lt;)	«<» isolé (dans le texte, on écrit &lt;)
+etiqueta <{name}> sin cerrar	unterminated tag <{name}>	balise <{name}> non fermée
+valor del atributo «{j}» sin cerrar	unterminated value of attribute “{j}”	valeur de l'attribut «{j}» non fermée
+el atributo «{trim_end_matches}» necesita el valor entre comillas	attribute “{trim_end_matches}” needs a quoted value	l'attribut «{trim_end_matches}» exige une valeur entre guillemets
+el atributo «{trim_end}» necesita un valor	attribute “{trim_end}” needs a value	l'attribut «{trim_end}» exige une valeur
+carácter inesperado en la etiqueta <{name}>	unexpected character in tag <{name}>	caractère inattendu dans la balise <{name}>
+<{name}> sin cerrar	unclosed <{name}>	<{name}> non fermé
+texto fuera del elemento raíz	text outside the root element	texte hors de l'élément racine
+hay más de un elemento raíz (<{name}>)	there is more than one root element (<{name}>)	il y a plus d'un élément racine (<{name}>)
+se esperaba </{open}> (abierto en la línea {l}) y llegó </{name}>	expected </{open}> (opened at line {l}) but got </{name}>	</{open}> attendu (ouvert à la ligne {l}) mais </{name}> trouvé
+</{name}> sin etiqueta de apertura	</{name}> without an opening tag	</{name}> sans balise d'ouverture
+<{open}> no se cierra	<{open}> is not closed	<{open}> n'est pas fermé
+no hay ningún elemento	there is no element	aucun élément
+Texto	Text	Texte
+Sin nombre	Untitled	Sans nom
+Quitar	Remove	Retirer
+Consejo: usa {{variables}} secretas para contraseñas y tokens; así el espacio se comparte sin credenciales.	Tip: use secret {{variables}} for passwords and tokens so the space can be shared without credentials.	Astuce : utilisez des {{variables}} secrètes pour les mots de passe et les jetons ; l'espace se partage ainsi sans identifiants.
+Se usa la autenticación configurada en el espacio.	The authentication configured in the space is used.	L'authentification configurée dans l'espace est utilisée.
+Usuario	User	Utilisateur
+Contraseña	Password	Mot de passe
+Nombre	Name	Nom
+Valor	Value	Valeur
+Enviar en	Send in	Envoyer dans
+Cabecera	Header	En-tête
+Parámetro de la URL	URL parameter	Paramètre d'URL
+Flujo	Flow	Flux
+URL de autorización	Authorization URL	URL d'autorisation
+URL del token	Token URL	URL du jeton
+Alcance (scope)	Scope	Portée (scope)
+Audiencia	Audience	Audience
+URL de retorno	Redirect URL	URL de retour
+Vacía = http://127.0.0.1:<puerto libre>/callback. Regístrala tal cual en el proveedor.	Empty = http://127.0.0.1:<free port>/callback. Register it exactly like that with the provider.	Vide = http://127.0.0.1:<port libre>/callback. Enregistrez-la telle quelle chez le fournisseur.
+Enviar client ID/secret con Basic	Send client ID/secret with Basic	Envoyer client ID/secret avec Basic
+No se pudo crear el espacio: {e}	Could not create the space: {e}	Impossible de créer l'espace : {e}
+espacio.toml no válido: {e}	Invalid espacio.toml: {e}	espacio.toml non valide : {e}
+No se pudo abrir {f}: {e}	Could not open {f}: {e}	Impossible d'ouvrir {f} : {e}
+Abrir espacio (carpeta)	Open space (folder)	Ouvrir un espace (dossier)
+Carpeta donde crear el espacio	Folder in which to create the space	Dossier où créer l'espace
+Guardar la respuesta	Save the response	Enregistrer la réponse
+Guardado en {f}	Saved to {f}	Enregistré dans {f}
+＋ Espacio	＋ Space	＋ Espace
+Crear un espacio nuevo	Create a new space	Créer un nouvel espace
+📂 Abrir…	📂 Open…	📂 Ouvrir…
+Abrir una carpeta de espacio (por ejemplo, un repositorio clonado)	Open a space folder (for example, a cloned repository)	Ouvrir un dossier d'espace (par exemple, un dépôt cloné)
+Entorno:	Environment:	Environnement :
+(ninguno)	(none)	(aucun)
+Variables, entornos y autenticación del espacio	Space variables, environments and authentication	Variables, environnements et authentification de l'espace
+Sin espacios.\nCrea uno o abre una carpeta.	No spaces.\nCreate one or open a folder.	Aucun espace.\nCréez-en un ou ouvrez un dossier.
+Nueva petición	New request	Nouvelle requête
+Nueva carpeta	New folder	Nouveau dossier
+Variables y entornos…	Variables and environments…	Variables et environnements…
+Mostrar la carpeta	Show folder	Afficher le dossier
+Abre una petición del panel o crea una nueva (clic derecho en el espacio).	Open a request from the panel or create a new one (right-click the space).	Ouvrez une requête du panneau ou créez-en une (clic droit sur l'espace).
+No se pudo guardar: {e}	Could not save: {e}	Impossible d'enregistrer : {e}
+Enviando…	Sending…	Envoi…
+Enviar	Send	Envoyer
+Parámetros	Parameters	Paramètres
+Cabeceras	Headers	En-têtes
+Cuerpo	Body	Corps
+Autenticación	Authentication	Authentification
+Notas	Notes	Notes
+parámetro	parameter	paramètre
+valor	value	valeur
+cabecera	header	en-tête
+Insertar sobre de ejemplo	Insert sample envelope	Insérer une enveloppe d'exemple
+Esta petición no envía cuerpo.	This request sends no body.	Cette requête n'envoie pas de corps.
+campo	field	champ
+✨ Formatear	✨ Format	✨ Formater
+línea {l}, columna {c}: {m}	line {l}, column {c}: {m}	ligne {l}, colonne {c} : {m}
+Descripción, ejemplos, enlaces…	Description, examples, links…	Description, exemples, liens…
+Esperando respuesta… {t}	Waiting for response… {t}	En attente de la réponse… {t}
+Pulsa «Enviar» (Ctrl+Enter) para ver la respuesta.	Press “Send” (Ctrl+Enter) to see the response.	Appuyez sur «Envoyer» (Ctrl+Entrée) pour voir la réponse.
+URL final tras redirecciones	Final URL after redirects	URL finale après redirections
+Variables sin valor: {v}	Variables without value: {v}	Variables sans valeur : {v}
+Enviado	Sent	Envoyé
+Formatear	Format	Formater
+Guardar…	Save…	Enregistrer…
+Copiar como curl	Copy as curl	Copier en curl
+Nuevo espacio	New space	Nouvel espace
+Dentro de	Inside	Dans
+Elegir…	Choose…	Choisir…
+Se creará {p}	{p} will be created	{p} sera créé
+Crear	Create	Créer
+Aceptar	OK	Valider
+¿Borrar?	Delete?	Supprimer ?
+Se borrará la carpeta con todas sus peticiones.	The folder will be deleted with all its requests.	Le dossier sera supprimé avec toutes ses requêtes.
+Borrar	Delete	Supprimer
+Espacio «{n}»	Space “{n}”	Espace «{n}»
+Los valores secretos se guardan solo en este equipo, fuera de la carpeta del espacio.	Secret values are stored only on this computer, outside the space folder.	Les valeurs secrètes sont enregistrées uniquement sur cet ordinateur, hors du dossier de l'espace.
+Tiempo de espera	Timeout	Délai d'attente
+Redirecciones	Redirects	Redirections
+Seguirlas	Follow them	Les suivre
+Verificar certificados	Verify certificates	Vérifier les certificats
+{n} (copia)	{n} (copy)	{n} (copie)
+Borrar…	Delete…	Supprimer…
+Variables del espacio	Space variables	Variables de l'espace
+Entornos	Environments	Environnements
+Cada entorno puede redefinir variables (por ejemplo, base en desarrollo y en producción).	Each environment can redefine variables (for example, base in development and in production).	Chaque environnement peut redéfinir des variables (par exemple, base en développement et en production).
+＋ Entorno	＋ Environment	＋ Environnement
+entorno {n}	environment {n}	environnement {n}
+Quitar entorno	Remove environment	Retirer l'environnement
+Autenticación común	Shared authentication	Authentification commune
+La usan las peticiones con «Heredar del espacio».	Used by requests set to “Inherit from space”.	Utilisée par les requêtes en «Hériter de l'espace».
+Cabeceras comunes	Shared headers	En-têtes communs
+Secreta	Secret	Secrète
+nombre	name	nom
+Su valor se guarda solo en este equipo	Its value is stored only on this computer	Sa valeur est enregistrée uniquement sur cet ordinateur
+falta la URL del token	token URL is missing	l'URL du jeton manque
+respuesta {s} no es JSON: {t}	response {s} is not JSON: {t}	la réponse {s} n'est pas du JSON : {t}
+estado {s}: {t}	status {s}: {t}	statut {s} : {t}
+falta la URL de autorización	authorization URL is missing	l'URL d'autorisation manque
+no se pudo escuchar en el puerto {p}: {e}	could not listen on port {p}: {e}	impossible d'écouter sur le port {p} : {e}
+no se pudo abrir el navegador: {e}	could not open the browser: {e}	impossible d'ouvrir le navigateur : {e}
+la URL de retorno debe ser http://127.0.0.1:PUERTO/… o http://localhost:PUERTO/…	the redirect URL must be http://127.0.0.1:PORT/… or http://localhost:PORT/…	l'URL de retour doit être http://127.0.0.1:PORT/… ou http://localhost:PORT/…
+puerto no válido en la URL de retorno	invalid port in the redirect URL	port non valide dans l'URL de retour
+estado (state) no coincide	state does not match	l'état (state) ne correspond pas
+Autorizado. Ya puedes cerrar esta pestaña y volver a peticiones.	Authorized. You can close this tab and go back to peticiones.	Autorisé. Vous pouvez fermer cet onglet et revenir à peticiones.
+la respuesta no trae código	the response has no code	la réponse ne contient pas de code
+se agotó el tiempo esperando la autorización en el navegador	timed out waiting for authorization in the browser	délai dépassé en attendant l'autorisation dans le navigateur
+No se encontró el servidor (DNS)	Server not found (DNS)	Serveur introuvable (DNS)
+No se pudo conectar	Could not connect	Connexion impossible
+Se agotó el tiempo de espera	Timed out	Délai d'attente dépassé
+La respuesta pasa del límite ({n} bytes)	The response exceeds the limit ({n} bytes)	La réponse dépasse la limite ({n} octets)
+Conexión rechazada	Connection refused	Connexion refusée
+Token OAuth nuevo	New OAuth token	Nouveau jeton OAuth
+OAuth: {e}	OAuth: {e}	OAuth : {e}
+Reto Digest no compatible	Unsupported Digest challenge	Défi Digest non pris en charge
+Sin cuerpo	No body	Sans corps
+Formulario	Form	Formulaire
+Heredar del espacio	Inherit from space	Hériter de l'espace
+Ninguna	None	Aucune
+Básica	Basic	Basique
