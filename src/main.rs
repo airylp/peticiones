@@ -7,6 +7,7 @@ mod app;
 mod auth;
 mod beautify;
 mod http;
+mod import;
 mod model;
 mod store;
 mod vars;

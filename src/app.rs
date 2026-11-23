@@ -100,6 +100,45 @@ enum Dialog {
     /// Ajustes del espacio (variables, entornos, auth, cabeceras).
     SpaceSettings { dir: PathBuf, file: SpaceFile, secrets: Secrets, env_sel: usize },
     Settings,
+    Import(ImportDialog),
+}
+
+/// Diálogo «Importar»: texto pegado, archivo o URL; destino nuevo o existente.
+pub struct ImportDialog {
+    text: String,
+    /// Archivo leído (su contenido no se muestra en el editor si es grande).
+    file: Option<PathBuf>,
+    url: String,
+    parsed: Option<Result<crate::import::Imported, String>>,
+    /// Destino: None = espacio nuevo; Some(carpeta del espacio) = existente.
+    target: Option<PathBuf>,
+    name: String,
+    parent: String,
+    /// Subcarpeta dentro de un espacio existente (vacía = raíz).
+    folder: String,
+}
+
+impl ImportDialog {
+    fn new(target: Option<PathBuf>) -> ImportDialog {
+        let parent = std::env::var_os("HOME").map(|h| PathBuf::from(h).join("peticiones").display().to_string()).unwrap_or_default();
+        ImportDialog { text: String::new(), file: None, url: String::new(), parsed: None, target, name: String::new(), parent, folder: String::new() }
+    }
+
+    fn set_text(&mut self, text: String, file: Option<PathBuf>) {
+        self.text = text;
+        self.file = file;
+        self.reparse();
+    }
+
+    fn reparse(&mut self) {
+        self.parsed = (!self.text.trim().is_empty()).then(|| crate::import::parse(&self.text));
+        if let Some(Ok(imp)) = &self.parsed {
+            let n = if imp.name.is_empty() { t!("Importado").to_string() } else { imp.name.clone() };
+            self.name = n.clone();
+            // Una sola petición (curl) va a la raíz; una colección, a su carpeta.
+            self.folder = if imp.count() > 1 || imp.items.iter().any(|i| matches!(i, crate::import::Item::Folder { .. })) { n } else { String::new() };
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -120,6 +159,12 @@ enum Pick {
     OpenSpace,
     NewSpaceParent,
     SaveBody,
+    /// Archivo a importar (curl, Postman, OpenAPI, WSDL).
+    ImportFile,
+    /// Carpeta padre de un espacio nuevo desde el diálogo de importar.
+    ImportParent,
+    /// Archivo .json donde exportar el espacio a Postman.
+    ExportPostman,
 }
 
 pub struct App {
@@ -136,6 +181,10 @@ pub struct App {
     /// Modo captura (pruebas): ruta de salida y fotogramas pintados.
     screenshot: Option<String>,
     frames: u32,
+    /// Espacio que se exporta a Postman (mientras se elige el archivo).
+    export_dir: Option<PathBuf>,
+    /// Descarga en curso de una URL para importar.
+    fetch: Option<Receiver<Result<String, String>>>,
     /// Pruebas (PETICIONES_RATON): paso actual y posición del ratón simulado.
     test_step: usize,
     test_mouse: Pos2,
@@ -387,6 +436,8 @@ impl App {
             opts,
             screenshot,
             frames: 0,
+            export_dir: None,
+            fetch: None,
             test_step: 0,
             test_mouse: Pos2::ZERO,
             session,
@@ -563,26 +614,29 @@ impl App {
         self.last_session_save = Instant::now();
     }
 
+    /// Abre un diálogo nativo (carpeta, abrir o guardar según `purpose`) y
+    /// espera la respuesta en otro hilo. El diálogo se crea aquí (hilo principal).
     fn pick_folder(&mut self, purpose: Pick, ctx: &Context) {
         if self.pick.is_some() {
             return;
         }
+        type Fut = std::pin::Pin<Box<dyn std::future::Future<Output = Option<rfd::FileHandle>> + Send>>;
+        let d = rfd::AsyncFileDialog::new();
+        let fut: Fut = match purpose {
+            Pick::OpenSpace => Box::pin(d.set_title(t!("Abrir espacio (carpeta)")).pick_folder()),
+            Pick::NewSpaceParent | Pick::ImportParent => Box::pin(d.set_title(t!("Carpeta donde crear el espacio")).pick_folder()),
+            Pick::SaveBody => Box::pin(d.set_title(t!("Guardar la respuesta")).set_file_name("respuesta").save_file()),
+            Pick::ImportFile => Box::pin(d.set_title(t!("Importar")).add_filter(t!("Colecciones y especificaciones"), &["json", "yaml", "yml", "wsdl", "xml", "txt", "sh"]).add_filter(t!("Todos"), &["*"]).pick_file()),
+            Pick::ExportPostman => {
+                let name = self.export_dir.as_ref().and_then(|d| self.space_of(d)).map(|i| store::file_name_for(&self.spaces[i].file.name)).unwrap_or_else(|| "coleccion".into());
+                Box::pin(d.set_title(t!("Exportar a Postman")).set_file_name(format!("{name}.postman_collection.json")).save_file())
+            }
+        };
         let result = Arc::new(Mutex::new(None));
         let r = result.clone();
         let ctx = ctx.clone();
-        let fut = match purpose {
-            Pick::OpenSpace => Some(rfd::AsyncFileDialog::new().set_title(t!("Abrir espacio (carpeta)")).pick_folder()),
-            Pick::NewSpaceParent => Some(rfd::AsyncFileDialog::new().set_title(t!("Carpeta donde crear el espacio")).pick_folder()),
-            Pick::SaveBody => None,
-        };
-        let save = (purpose == Pick::SaveBody).then(|| rfd::AsyncFileDialog::new().set_title(t!("Guardar la respuesta")).set_file_name("respuesta").save_file());
         std::thread::spawn(move || {
-            let v = match (fut, save) {
-                (Some(f), _) => block_on(f).map(|h| h.path().to_path_buf()),
-                (None, Some(f)) => block_on(f).map(|h| h.path().to_path_buf()),
-                _ => None,
-            };
-            *r.lock().unwrap() = Some(v);
+            *r.lock().unwrap() = Some(block_on(fut).map(|h| h.path().to_path_buf()));
             ctx.request_repaint();
         });
         self.pick = Some(PendingPick { result, purpose });
@@ -597,6 +651,29 @@ impl App {
             Pick::NewSpaceParent => {
                 if let Some(Dialog::NewSpace { parent, .. }) = &mut self.dialog {
                     *parent = path.display().to_string();
+                }
+            }
+            Pick::ImportFile => match std::fs::read(&path) {
+                Ok(b) => {
+                    let text = String::from_utf8_lossy(&b).into_owned();
+                    if let Some(Dialog::Import(d)) = &mut self.dialog {
+                        d.set_text(text, Some(path));
+                    }
+                }
+                Err(e) => self.msg(e.to_string()),
+            },
+            Pick::ImportParent => {
+                if let Some(Dialog::Import(d)) = &mut self.dialog {
+                    d.parent = path.display().to_string();
+                }
+            }
+            Pick::ExportPostman => {
+                if let Some(i) = self.export_dir.take().and_then(|d| self.space_of(&d)) {
+                    let s = &self.spaces[i];
+                    match std::fs::write(&path, crate::import::export_postman(&s.file, &s.dir)) {
+                        Ok(()) => self.msg(tf!("Exportado a {f}", f = path.display())),
+                        Err(e) => self.msg(e.to_string()),
+                    }
                 }
             }
             Pick::SaveBody => {
@@ -617,6 +694,10 @@ impl App {
             if ui.button(t!("＋ Espacio")).on_hover_text(t!("Crear un espacio nuevo")).clicked() {
                 let parent = std::env::var_os("HOME").map(|h| PathBuf::from(h).join("peticiones").display().to_string()).unwrap_or_default();
                 self.dialog = Some(Dialog::NewSpace { name: String::new(), parent });
+            }
+            if ui.button(t!("⇩ Importar…")).on_hover_text(t!("curl, Postman, OpenAPI/Swagger o WSDL")).clicked() {
+                let target = self.active.map(|a| self.tabs[a].space.clone()).or_else(|| self.spaces.first().map(|s| s.dir.clone()));
+                self.dialog = Some(Dialog::Import(ImportDialog::new(target)));
             }
             if ui.button(t!("📂 Abrir…")).on_hover_text(t!("Abrir una carpeta de espacio (por ejemplo, un repositorio clonado)")).clicked() {
                 self.pick_folder(Pick::OpenSpace, ui.ctx());
@@ -660,8 +741,9 @@ impl App {
 
     fn sidebar(&mut self, ui: &mut Ui) {
         let active_path = self.active.and_then(|a| self.tabs.get(a)).map(|t| t.path.clone());
-        let mut open: Option<PathBuf> = None;
-        let mut dup: Option<PathBuf> = None;
+        let mut act: Option<TreeAct> = None;
+        let mut export = None;
+        let mut import_to = None;
         let mut close_space = None;
         let mut dialog = None;
         let mut reveal = None;
@@ -692,6 +774,14 @@ impl App {
                         settings = Some(si);
                         ui.close();
                     }
+                    if ui.button(t!("Importar aquí…")).clicked() {
+                        import_to = Some(dir.clone());
+                        ui.close();
+                    }
+                    if ui.button(t!("Exportar a Postman…")).clicked() {
+                        export = Some(dir.clone());
+                        ui.close();
+                    }
                     if ui.button(t!("Mostrar la carpeta")).clicked() {
                         reveal = Some(dir.clone());
                         ui.close();
@@ -707,17 +797,24 @@ impl App {
                 }
                 if s.expanded {
                     ui.indent(("sp", si), |ui| {
-                        tree_ui(ui, &s.tree, &dir, active_path.as_deref(), &mut open, &mut dup, &mut dialog);
+                        tree_ui(ui, &s.tree, &dir, active_path.as_deref(), &mut act, &mut dialog);
                     });
                 }
                 ui.add_space(4.0);
             }
         });
-        if let Some(p) = open {
-            self.open_request(&p);
+        match act {
+            Some(TreeAct::Open(p)) => self.open_request(&p),
+            Some(TreeAct::Duplicate(p)) => self.duplicate(&p),
+            Some(TreeAct::Curl(p)) => self.copy_curl(&p, ui.ctx()),
+            None => {}
         }
-        if let Some(p) = dup {
-            self.duplicate(&p);
+        if let Some(d) = export {
+            self.export_dir = Some(d);
+            self.pick_folder(Pick::ExportPostman, ui.ctx());
+        }
+        if let Some(d) = import_to {
+            self.dialog = Some(Dialog::Import(ImportDialog::new(Some(d))));
         }
         if let Some(d) = dialog {
             self.dialog = Some(d);
@@ -787,6 +884,7 @@ impl App {
         let ctx = ui.ctx().clone();
         let mut do_send = false;
         let mut changed = false;
+        let mut curl_note = None;
         {
             let t = &mut self.tabs[i];
             ui.horizontal(|ui| {
@@ -811,6 +909,19 @@ impl App {
                 let send_w = 90.0;
                 let url = ui.add(TextEdit::singleline(&mut t.req.url).hint_text("https://api.ejemplo.com/recurso  ·  {{base}}/ruta").font(TextStyle::Monospace).desired_width(ui.available_width() - send_w - 8.0));
                 changed |= url.changed();
+                // Pegar un comando curl en la URL lo convierte en la petición.
+                if url.changed() && t.req.url.trim_start().starts_with("curl ") {
+                    match crate::import::parse_curl(t.req.url.trim()) {
+                        Ok(mut r) => {
+                            r.name = if t.req.name.trim().is_empty() { r.name } else { t.req.name.clone() };
+                            r.notes = std::mem::take(&mut t.req.notes);
+                            t.req = r;
+                            t.sub = if t.req.body.kind != BodyKind::None { ReqTab::Body } else { ReqTab::Headers };
+                            curl_note = Some(t!("Comando curl convertido en petición"));
+                        }
+                        Err(e) => t.save_error = Some(e),
+                    }
+                }
                 if url.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter)) {
                     do_send = true;
                 }
@@ -894,6 +1005,9 @@ impl App {
                 t.changed_at = Some(Instant::now());
                 ctx.request_repaint_after(AUTOSAVE_AFTER);
             }
+        }
+        if let Some(n) = curl_note {
+            self.msg(n);
         }
         if ctx.input_mut(|i| i.consume_key(Modifiers::COMMAND, Key::Enter)) {
             do_send = true;
@@ -1203,6 +1317,139 @@ impl App {
                     }
                 }
             }
+            Dialog::Import(imp) => {
+                let mut open = true;
+                let mut do_import = false;
+                let mut pick = None;
+                let mut fetch = None;
+                let space_names: Vec<(PathBuf, String)> = self.spaces.iter().map(|s| (s.dir.clone(), s.file.name.clone())).collect();
+                let fetching = self.fetch.is_some();
+                Window::new(t!("Importar")).id(Id::NULL.with("import")).open(&mut open).default_size([680.0, 520.0]).collapsible(false).show(ctx, |ui| {
+                    ui.weak(t!("Pega un comando curl, una colección o entorno de Postman, una especificación OpenAPI/Swagger (JSON o YAML) o un WSDL; o elige un archivo o una URL."));
+                    ui.add_space(4.0);
+                    ui.horizontal(|ui| {
+                        if ui.button(t!("📄 Archivo…")).clicked() {
+                            pick = Some(Pick::ImportFile);
+                        }
+                        ui.label(t!("o URL:"));
+                        let r = ui.add(TextEdit::singleline(&mut imp.url).hint_text("https://servicio/ws?wsdl · https://api/openapi.json").desired_width(ui.available_width() - 110.0));
+                        let go = r.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter));
+                        if (ui.add_enabled(!fetching && !imp.url.trim().is_empty(), Button::new(if fetching { t!("Descargando…") } else { t!("Descargar") })).clicked() || go) && !fetching {
+                            fetch = Some(imp.url.trim().to_string());
+                        }
+                    });
+                    ui.add_space(4.0);
+                    if let Some(f) = imp.file.clone() {
+                        ui.horizontal(|ui| {
+                            let name = f.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                            ui.label(tf!("Archivo: {f} ({n})", f = name, n = fmt_size(imp.text.len()))).on_hover_text(f.display().to_string());
+                            if ui.small_button(t!("Quitar")).clicked() {
+                                imp.file = None;
+                                imp.text.clear();
+                                imp.parsed = None;
+                            }
+                        });
+                    } else if imp.text.len() > SMALL_BODY {
+                        ui.horizontal(|ui| {
+                            ui.label(tf!("Texto descargado ({n})", n = fmt_size(imp.text.len())));
+                            if ui.small_button(t!("Quitar")).clicked() {
+                                imp.text.clear();
+                                imp.parsed = None;
+                            }
+                        });
+                    } else {
+                        let r = ScrollArea::vertical().id_salt("imptext").max_height(180.0).show(ui, |ui| ui.add(TextEdit::multiline(&mut imp.text).code_editor().desired_rows(8).desired_width(f32::INFINITY).hint_text("curl https://… / { \"info\": … } / openapi: 3.0 / <definitions …>"))).inner;
+                        if r.changed() {
+                            imp.reparse();
+                        }
+                    }
+                    ui.separator();
+                    match &imp.parsed {
+                        None => {
+                            ui.weak(t!("Nada que importar todavía."));
+                        }
+                        Some(Err(e)) => {
+                            ui.colored_label(ui.visuals().error_fg_color, e);
+                        }
+                        Some(Ok(p)) => {
+                            ui.label(RichText::new(tf!("{f}: {n} peticiones", f = p.format, n = p.count())).strong());
+                            if !p.vars.is_empty() || !p.envs.is_empty() {
+                                let vars: Vec<&str> = p.vars.iter().map(|v| v.name.as_str()).collect();
+                                let envs: Vec<&str> = p.envs.iter().map(|e| e.name.as_str()).collect();
+                                ui.weak(tf!("Variables: {v} · Entornos: {e}", v = if vars.is_empty() { "—".into() } else { vars.join(", ") }, e = if envs.is_empty() { "—".into() } else { envs.join(", ") }));
+                            }
+                            if let Some(a) = &p.auth {
+                                ui.weak(tf!("Autenticación: {a}", a = a.label()));
+                            }
+                            for n in &p.notes {
+                                ui.colored_label(ui.visuals().warn_fg_color, format!("⚠ {n}"));
+                            }
+                            ui.add_space(6.0);
+                            ui.horizontal(|ui| {
+                                ui.label(t!("Destino"));
+                                let label = match &imp.target {
+                                    None => t!("Espacio nuevo").to_string(),
+                                    Some(d) => space_names.iter().find(|(x, _)| x == d).map(|(_, n)| n.clone()).unwrap_or_default(),
+                                };
+                                ComboBox::from_id_salt("imptarget").selected_text(label).show_ui(ui, |ui| {
+                                    ui.selectable_value(&mut imp.target, None, t!("Espacio nuevo"));
+                                    for (d, n) in &space_names {
+                                        ui.selectable_value(&mut imp.target, Some(d.clone()), n);
+                                    }
+                                });
+                            });
+                            Grid::new("impdest").num_columns(2).spacing([10.0, 6.0]).show(ui, |ui| {
+                                if imp.target.is_none() {
+                                    ui.label(t!("Nombre"));
+                                    ui.add(TextEdit::singleline(&mut imp.name).desired_width(320.0));
+                                    ui.end_row();
+                                    ui.label(t!("Dentro de"));
+                                    ui.horizontal(|ui| {
+                                        ui.add(TextEdit::singleline(&mut imp.parent).desired_width(260.0));
+                                        if ui.button(t!("Elegir…")).clicked() {
+                                            pick = Some(Pick::ImportParent);
+                                        }
+                                    });
+                                    ui.end_row();
+                                } else {
+                                    ui.label(t!("Carpeta"));
+                                    ui.add(TextEdit::singleline(&mut imp.folder).hint_text(t!("(raíz del espacio)")).desired_width(320.0));
+                                    ui.end_row();
+                                }
+                            });
+                            ui.add_space(6.0);
+                            let ok = imp.target.is_some() || !imp.name.trim().is_empty();
+                            do_import = ui.add_enabled(ok, Button::new(RichText::new(t!("Importar")).strong())).clicked();
+                        }
+                    }
+                });
+                if !open {
+                    keep = false;
+                }
+                if let Some(u) = fetch {
+                    let (tx, rx) = channel();
+                    let ctx2 = ctx.clone();
+                    let opts = self.opts.clone();
+                    std::thread::spawn(move || {
+                        let p = http::Prepared { method: "GET".into(), url: http::fix_url(&u), ..Default::default() };
+                        let r = http::send_raw(&p, &opts).and_then(|r| if r.status < 400 { Ok(String::from_utf8_lossy(&r.body).into_owned()) } else { Err(format!("HTTP {} {}", r.status, r.reason)) });
+                        let _ = tx.send(r);
+                        ctx2.request_repaint();
+                    });
+                    self.fetch = Some(rx);
+                }
+                if do_import {
+                    keep = false;
+                    self.do_import(imp);
+                }
+                if let Some(p) = pick {
+                    if keep && self.dialog.is_none() {
+                        self.dialog = Some(d);
+                    }
+                    self.pick_folder(p, ctx);
+                    return;
+                }
+            }
             Dialog::Settings => {
                 let mut open = true;
                 Window::new(t!("Ajustes")).open(&mut open).collapsible(false).resizable(false).show(ctx, |ui| {
@@ -1269,6 +1516,65 @@ impl App {
         }
     }
 
+    /// Escribe lo importado en el destino elegido y abre lo creado.
+    fn do_import(&mut self, imp: &ImportDialog) {
+        let Some(Ok(parsed)) = &imp.parsed else { return };
+        let (space_dir, dir) = match &imp.target {
+            None => {
+                let dir = expand_home(imp.parent.trim()).join(store::file_name_for(&imp.name));
+                if dir.join(store::SPACE_FILE).exists() {
+                    return self.msg(tf!("Ya existe un espacio en {d}", d = dir.display()));
+                }
+                let f = SpaceFile { id: store::new_id(), name: imp.name.trim().to_string(), auth: Auth::None, ..Default::default() };
+                if let Err(e) = store::save_space_file(&dir, &f) {
+                    return self.msg(tf!("No se pudo crear el espacio: {e}", e = e));
+                }
+                (dir.clone(), dir)
+            }
+            Some(d) => {
+                let sub = imp.folder.trim();
+                let dir = if sub.is_empty() { d.clone() } else { d.join(store::file_name_for(sub)) };
+                (d.clone(), dir)
+            }
+        };
+        match crate::import::write_into(&space_dir, &dir, parsed) {
+            Ok(n) => {
+                match self.space_of(&space_dir) {
+                    // Se recarga el espacio (variables y auth nuevas) conservando el entorno.
+                    Some(i) => {
+                        let env = self.spaces[i].env.clone();
+                        let expanded = self.spaces[i].expanded;
+                        self.spaces[i] = Space::load(space_dir.clone(), env);
+                        self.spaces[i].expanded = expanded;
+                    }
+                    None => self.add_space(space_dir.clone()),
+                }
+                self.msg(tf!("Importadas {n} peticiones", n = n));
+                // Una sola petición: se abre.
+                if n == 1 {
+                    if let Some(p) = first_request(&store::scan_tree(&dir), &dir) {
+                        self.open_request(&p);
+                    }
+                }
+            }
+            Err(e) => self.msg(tf!("No se pudo importar: {e}", e = e)),
+        }
+    }
+
+    fn poll_fetch(&mut self) {
+        let Some(rx) = &self.fetch else { return };
+        let Ok(r) = rx.try_recv() else { return };
+        self.fetch = None;
+        match r {
+            Ok(text) => {
+                if let Some(Dialog::Import(d)) = &mut self.dialog {
+                    d.set_text(text, None);
+                }
+            }
+            Err(e) => self.msg(tf!("No se pudo descargar: {e}", e = e)),
+        }
+    }
+
     fn rename(&mut self, path: &Path, name: &str) {
         if path.is_dir() {
             let to = path.with_file_name(store::file_name_for(name));
@@ -1308,6 +1614,21 @@ impl App {
         self.session_dirty = true;
     }
 
+    /// Copia una petición del árbol como comando curl (con variables resueltas).
+    fn copy_curl(&mut self, path: &Path, ctx: &Context) {
+        let req = match self.tabs.iter().find(|t| t.path == path) {
+            Some(t) => clean(&t.req),
+            None => match store::load_request(path) {
+                Ok(r) => r,
+                Err(e) => return self.msg(e.to_string()),
+            },
+        };
+        let Some(s) = self.spaces.iter().filter(|s| path.starts_with(&s.dir)).max_by_key(|s| s.dir.as_os_str().len()) else { return };
+        let p = http::prepare(&req, &s.file, &s.scope());
+        ctx.copy_text(http::to_curl(&p));
+        self.msg(t!("Copiado como curl"));
+    }
+
     fn duplicate(&mut self, path: &Path) {
         let Ok(mut r) = store::load_request(path) else { return };
         r.name = tf!("{n} (copia)", n = r.name);
@@ -1345,7 +1666,15 @@ impl App {
                 self.dialog = Some(Dialog::SpaceSettings { dir: s.dir.clone(), file: s.file.clone(), secrets: s.secrets.clone(), env_sel: 0 });
             }
         }
-        let busy = self.tabs.iter().any(|t| t.pending.is_some());
+        // PETICIONES_IMPORTAR=archivo: abre «Importar» con su contenido.
+        if self.frames == 3 {
+            if let Some(f) = std::env::var_os("PETICIONES_IMPORTAR") {
+                let mut d = ImportDialog::new(self.spaces.first().map(|s| s.dir.clone()));
+                d.set_text(std::fs::read_to_string(&f).unwrap_or_default(), Some(PathBuf::from(f)));
+                self.dialog = Some(Dialog::Import(d));
+            }
+        }
+        let busy = self.tabs.iter().any(|t| t.pending.is_some()) || self.fetch.is_some();
         let scripted = std::env::var("PETICIONES_RATON").is_ok_and(|s| self.test_step < s.split(';').count());
         if self.frames < 40 || busy || scripted {
             ctx.request_repaint();
@@ -1365,6 +1694,26 @@ impl App {
     }
 }
 
+/// La petición creada más recientemente bajo `dir` (para abrir lo importado).
+fn first_request(nodes: &[Node], _dir: &Path) -> Option<PathBuf> {
+    let mut best: Option<(std::time::SystemTime, PathBuf)> = None;
+    fn walk(nodes: &[Node], best: &mut Option<(std::time::SystemTime, PathBuf)>) {
+        for n in nodes {
+            match n {
+                Node::Folder { children, .. } => walk(children, best),
+                Node::Req { path, .. } => {
+                    let t = std::fs::metadata(path).and_then(|m| m.modified()).unwrap_or(std::time::UNIX_EPOCH);
+                    if best.as_ref().is_none_or(|(b, _)| t > *b) {
+                        *best = Some((t, path.clone()));
+                    }
+                }
+            }
+        }
+    }
+    walk(nodes, &mut best);
+    best.map(|(_, p)| p)
+}
+
 fn with_count(label: &str, n: usize) -> String {
     if n == 0 { label.to_string() } else { format!("{label} ({n})") }
 }
@@ -1382,7 +1731,14 @@ fn soap_template(v12: bool) -> String {
 }
 
 /// Árbol de un espacio. Clic abre; menú contextual crea, renombra, duplica o borra.
-fn tree_ui(ui: &mut Ui, nodes: &[Node], parent: &Path, active: Option<&Path>, open: &mut Option<PathBuf>, dup: &mut Option<PathBuf>, dialog: &mut Option<Dialog>) {
+/// Acción pedida desde el árbol (se aplica al terminar de pintarlo).
+enum TreeAct {
+    Open(PathBuf),
+    Duplicate(PathBuf),
+    Curl(PathBuf),
+}
+
+fn tree_ui(ui: &mut Ui, nodes: &[Node], parent: &Path, active: Option<&Path>, act: &mut Option<TreeAct>, dialog: &mut Option<Dialog>) {
     let space = parent.to_path_buf();
     for n in nodes {
         match n {
@@ -1392,7 +1748,7 @@ fn tree_ui(ui: &mut Ui, nodes: &[Node], parent: &Path, active: Option<&Path>, op
                     .show_header(ui, |ui| {
                         ui.label(RichText::new(name).strong());
                     })
-                    .body(|ui| tree_ui(ui, children, &space, active, open, dup, dialog));
+                    .body(|ui| tree_ui(ui, children, &space, active, act, dialog));
                 r.1.response.context_menu(|ui| {
                     if ui.button(t!("Nueva petición")).clicked() {
                         *dialog = Some(Dialog::Name { title: t!("Nueva petición"), value: String::new(), action: NameAction::NewRequest { dir: path.clone() } });
@@ -1422,7 +1778,7 @@ fn tree_ui(ui: &mut Ui, nodes: &[Node], parent: &Path, active: Option<&Path>, op
                 let sel = active == Some(path.as_path());
                 let r = ui.add(Button::selectable(sel, job).wrap_mode(TextWrapMode::Truncate));
                 if r.clicked() {
-                    *open = Some(path.clone());
+                    *act = Some(TreeAct::Open(path.clone()));
                 }
                 r.context_menu(|ui| {
                     if ui.button(t!("Renombrar…")).clicked() {
@@ -1430,7 +1786,11 @@ fn tree_ui(ui: &mut Ui, nodes: &[Node], parent: &Path, active: Option<&Path>, op
                         ui.close();
                     }
                     if ui.button(t!("Duplicar")).clicked() {
-                        *dup = Some(path.clone());
+                        *act = Some(TreeAct::Duplicate(path.clone()));
+                        ui.close();
+                    }
+                    if ui.button(t!("Copiar como curl")).clicked() {
+                        *act = Some(TreeAct::Curl(path.clone()));
                         ui.close();
                     }
                     ui.separator();
@@ -1614,6 +1974,7 @@ impl eframe::App for App {
         let ctx = ui.ctx().clone();
         self.poll_responses();
         self.poll_pick();
+        self.poll_fetch();
         self.autosave();
         if ctx.input_mut(|i| i.consume_key(Modifiers::COMMAND, Key::S)) {
             if let Some(a) = self.active {

@@ -161,3 +161,52 @@ Formulario	Form	Formulaire
 Heredar del espacio	Inherit from space	Hériter de l'espace
 Ninguna	None	Aucune
 Básica	Basic	Basique
+(raíz del espacio)	(space root)	(racine de l'espace)
+Archivo: {f} ({n})	File: {f} ({n})	Fichier : {f} ({n})
+Autenticación: {a}	Authentication: {a}	Authentification : {a}
+Carpeta	Folder	Dossier
+Colecciones y especificaciones	Collections and specifications	Collections et spécifications
+Comando curl convertido en petición	curl command converted into a request	Commande curl convertie en requête
+Copiado como curl	Copied as curl	Copié en curl
+Descargando…	Downloading…	Téléchargement…
+Descargar	Download	Télécharger
+Destino	Destination	Destination
+Espacio nuevo	New space	Nouvel espace
+Exportado a {f}	Exported to {f}	Exporté vers {f}
+Exportar a Postman	Export to Postman	Exporter vers Postman
+Exportar a Postman…	Export to Postman…	Exporter vers Postman…
+Importadas {n} peticiones	Imported {n} requests	{n} requêtes importées
+Importado	Imported	Importé
+Importar	Import	Importer
+Importar aquí…	Import here…	Importer ici…
+JSON no válido: {e}	Invalid JSON: {e}	JSON non valide : {e}
+Nada que importar todavía.	Nothing to import yet.	Rien à importer pour l'instant.
+No se pudo descargar: {e}	Could not download: {e}	Téléchargement impossible : {e}
+No se pudo importar: {e}	Could not import: {e}	Importation impossible : {e}
+Pega un comando curl, una colección o entorno de Postman, una especificación OpenAPI/Swagger (JSON o YAML) o un WSDL; o elige un archivo o una URL.	Paste a curl command, a Postman collection or environment, an OpenAPI/Swagger specification (JSON or YAML) or a WSDL; or choose a file or a URL.	Collez une commande curl, une collection ou un environnement Postman, une spécification OpenAPI/Swagger (JSON ou YAML) ou un WSDL ; ou choisissez un fichier ou une URL.
+Texto descargado ({n})	Downloaded text ({n})	Texte téléchargé ({n})
+Todos	All	Tous
+Variables: {v} · Entornos: {e}	Variables: {v} · Environments: {e}	Variables : {v} · Environnements : {e}
+WSDL 2.0 no está soportado (solo WSDL 1.1)	WSDL 2.0 is not supported (only WSDL 1.1)	WSDL 2.0 n'est pas pris en charge (seulement WSDL 1.1)
+XML no válido: {e}	Invalid XML: {e}	XML non valide : {e}
+Ya existe un espacio en {d}	A space already exists in {d}	Un espace existe déjà dans {d}
+comilla doble sin cerrar	unclosed double quote	guillemet double non fermé
+comilla simple sin cerrar	unclosed single quote	apostrophe non fermée
+curl, Postman, OpenAPI/Swagger o WSDL	curl, Postman, OpenAPI/Swagger or WSDL	curl, Postman, OpenAPI/Swagger ou WSDL
+el WSDL importa esquemas externos (schemaLocation): los cuerpos de ejemplo pueden quedar incompletos	the WSDL imports external schemas (schemaLocation): sample bodies may be incomplete	le WSDL importe des schémas externes (schemaLocation) : les corps d'exemple peuvent être incomplets
+el WSDL no tiene bindings SOAP	the WSDL has no SOAP bindings	le WSDL n'a pas de bindings SOAP
+el XML no es un WSDL (falta <definitions>)	the XML is not a WSDL (missing <definitions>)	le XML n'est pas un WSDL (<definitions> manquant)
+el comando curl no tiene URL	the curl command has no URL	la commande curl n'a pas d'URL
+entorno de Postman	Postman environment	environnement Postman
+la carpeta «{n}» tenía su propia autenticación: revisa sus peticiones	folder “{n}” had its own authentication: check its requests	le dossier «{n}» avait sa propre authentification : vérifiez ses requêtes
+la especificación no tiene operaciones	the specification has no operations	la spécification n'a aucune opération
+los scripts (pre-request/tests) de Postman no se importan	Postman scripts (pre-request/tests) are not imported	les scripts Postman (pre-request/tests) ne sont pas importés
+no hay nada que importar	nothing to import	rien à importer
+no se reconoce el formato (ni curl, JSON, YAML ni XML): {e}	unrecognized format (not curl, JSON, YAML or XML): {e}	format non reconnu (ni curl, JSON, YAML ni XML) : {e}
+no se reconoce el formato: se admite curl, Postman, OpenAPI/Swagger y WSDL	unrecognized format: curl, Postman, OpenAPI/Swagger and WSDL are supported	format non reconnu : curl, Postman, OpenAPI/Swagger et WSDL sont pris en charge
+o URL:	or URL:	ou URL :
+servidor {n}	server {n}	serveur {n}
+{f}: {n} peticiones	{f}: {n} requests	{f} : {n} requêtes
+«{n}»: multipart/form-data se importó como formulario (los archivos adjuntos no se admiten aún)	“{n}”: multipart/form-data was imported as a form (file attachments are not supported yet)	«{n}» : multipart/form-data a été importé comme formulaire (les pièces jointes ne sont pas encore prises en charge)
+⇩ Importar…	⇩ Import…	⇩ Importer…
+📄 Archivo…	📄 File…	📄 Fichier…

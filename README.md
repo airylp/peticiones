@@ -46,6 +46,9 @@ pone sus propios valores.
   código en `127.0.0.1`), con caché y renovación del token.
 - Variables `{{nombre}}` del espacio y por entorno; dinámicas `{{$uuid}}`, `{{$timestamp}}`,
   `{{$isoTimestamp}}`.
+- Importar: comandos curl (también pegándolos en la URL), colecciones y entornos de Postman,
+  OpenAPI 3 / Swagger 2 (JSON o YAML) y WSDL 1.1 (una petición SOAP por operación con sobre de
+  ejemplo), desde archivo, texto o URL. Exportar un espacio como colección de Postman v2.1.
 - Respuesta formateada (JSON/XML), cabeceras, lo enviado y «Copiar como curl».
 - Guardado automático; Ctrl+Enter envía, Ctrl+S guarda, Ctrl+W cierra la pestaña.
 - Interfaz en español, inglés y francés.
