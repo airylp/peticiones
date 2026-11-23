@@ -3,6 +3,12 @@
 Cliente de peticiones HTTP y SOAP de escritorio (Rust + egui), ligero, para probar APIs y
 compartir colecciones como carpetas de texto.
 
+## Descargar
+
+Prototipo en [Releases](https://github.com/airylp/peticiones/releases): macOS (universal), Windows y
+Linux x86_64. Las compilaciones no están firmadas: en macOS ábrela la primera vez con clic derecho →
+Abrir; en Windows, «Más información» → «Ejecutar de todas formas».
+
 ## Espacios
 
 Un espacio es una carpeta que se puede versionar con git o compartir como zip:

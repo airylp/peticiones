@@ -1,0 +1,125 @@
+# Versiones: al subir un tag «v*» (p. ej. `git tag v0.1.0 && git push origin v0.1.0`)
+# compila peticiones en Linux, macOS (universal: Apple Silicon + Intel) y Windows y
+# publica los archivos en GitHub Releases. «Run workflow» (a mano) solo compila y
+# deja los archivos como artefactos, sin publicar nada.
+name: Versiones
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            name: linux-x86_64
+          - os: macos-latest
+            name: macos-universal
+          - os: windows-latest
+            name: windows-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependencias (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libxkbcommon-dev libssl-dev
+
+      - name: Rust
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal && rustup default stable
+          if [ "$RUNNER_OS" = macOS ]; then rustup target add x86_64-apple-darwin aarch64-apple-darwin; fi
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Versión
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then V="${GITHUB_REF_NAME#v}"; else V="$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)-prueba"; fi
+          echo "VERSION=$V" >> "$GITHUB_ENV"
+
+      - name: Tests
+        if: runner.os == 'Linux'
+        run: cargo test --release --locked
+
+      - name: Compilar y empaquetar (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cargo build --release --locked
+          mkdir -p dist/peticiones-$VERSION-linux-x86_64
+          cp target/release/peticiones README.md LICENSE dist/peticiones-$VERSION-linux-x86_64/
+          tar -C dist -czf dist/peticiones-$VERSION-linux-x86_64.tar.gz peticiones-$VERSION-linux-x86_64
+
+      - name: Compilar y empaquetar (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cargo build --release --locked --target aarch64-apple-darwin
+          cargo build --release --locked --target x86_64-apple-darwin
+          APP=dist/Peticiones.app
+          mkdir -p "$APP/Contents/MacOS"
+          lipo -create -output "$APP/Contents/MacOS/peticiones" target/aarch64-apple-darwin/release/peticiones target/x86_64-apple-darwin/release/peticiones
+          cat > "$APP/Contents/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>CFBundleName</key><string>Peticiones</string>
+            <key>CFBundleDisplayName</key><string>Peticiones</string>
+            <key>CFBundleIdentifier</key><string>io.github.airylp.peticiones</string>
+            <key>CFBundleExecutable</key><string>peticiones</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>$VERSION</string>
+            <key>CFBundleVersion</key><string>$VERSION</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict></plist>
+          EOF
+          codesign --force --deep -s - "$APP"
+          ditto -c -k --keepParent "$APP" dist/peticiones-$VERSION-macos-universal.zip
+
+      - name: Compilar y empaquetar (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cargo build --release --locked
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path target\release\peticiones.exe, README.md, LICENSE -DestinationPath "dist\peticiones-$env:VERSION-windows-x86_64.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: peticiones-${{ matrix.name }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+
+  publish:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publicar en Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -l dist
+          notes="Prototipo de peticiones: cliente HTTP/SOAP con espacios compartibles como carpetas.
+
+          - **macOS** (Apple Silicon e Intel): descarga \`peticiones-*-macos-universal.zip\`, descomprímelo y mueve *Peticiones.app* a Aplicaciones. No está firmada: la primera vez usa clic derecho → Abrir, o \`xattr -dr com.apple.quarantine /Applications/Peticiones.app\`.
+          - **Windows** 10/11: descomprime \`peticiones-*-windows-x86_64.zip\` y abre \`peticiones.exe\` (SmartScreen: «Más información» → «Ejecutar de todas formas»).
+          - **Linux** x86_64: \`tar xzf peticiones-*-linux-x86_64.tar.gz\` y ejecuta \`./peticiones\`."
+          if gh release view "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber -R "$GITHUB_REPOSITORY"
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* --prerelease --title "peticiones $GITHUB_REF_NAME (prototipo)" --notes "$notes" -R "$GITHUB_REPOSITORY"
+          fi
