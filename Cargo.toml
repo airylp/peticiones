@@ -17,3 +17,7 @@ serde_yaml_ng = "0.10.0"
 sha2 = "0.11.1"
 toml = "1.2.2"
 ureq = "3"
+
+# Ícono y datos de versión del .exe (solo al compilar en Windows): ver build.rs.
+[target.'cfg(windows)'.build-dependencies]
+winresource = { version = "0.1", default-features = false }

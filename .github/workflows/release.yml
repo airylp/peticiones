@@ -45,6 +45,9 @@ jobs:
         run: |
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then V="${GITHUB_REF_NAME#v}"; else V="$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)-prueba"; fi
           echo "VERSION=$V" >> "$GITHUB_ENV"
+          # Los lee la app al compilar (update.rs): versión y commit publicados.
+          echo "PETICIONES_VERSION=v$V" >> "$GITHUB_ENV"
+          echo "PETICIONES_COMMIT=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
 
       - name: Tests
         if: runner.os == 'Linux'
@@ -66,6 +69,11 @@ jobs:
           APP=dist/Peticiones.app
           mkdir -p "$APP/Contents/MacOS"
           lipo -create -output "$APP/Contents/MacOS/peticiones" target/aarch64-apple-darwin/release/peticiones target/x86_64-apple-darwin/release/peticiones
+          # Ícono (la «P» de cubos): PNG generados por la propia app → .icns.
+          mkdir -p "$APP/Contents/Resources"
+          "$APP/Contents/MacOS/peticiones" --iconset dist/peticiones.iconset
+          iconutil -c icns dist/peticiones.iconset -o "$APP/Contents/Resources/peticiones.icns"
+          rm -rf dist/peticiones.iconset
           cat > "$APP/Contents/Info.plist" <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -74,6 +82,7 @@ jobs:
             <key>CFBundleDisplayName</key><string>Peticiones</string>
             <key>CFBundleIdentifier</key><string>io.github.airylp.peticiones</string>
             <key>CFBundleExecutable</key><string>peticiones</string>
+            <key>CFBundleIconFile</key><string>peticiones</string>
             <key>CFBundlePackageType</key><string>APPL</string>
             <key>CFBundleShortVersionString</key><string>$VERSION</string>
             <key>CFBundleVersion</key><string>$VERSION</string>
@@ -91,6 +100,12 @@ jobs:
           cargo build --release --locked
           New-Item -ItemType Directory -Force dist | Out-Null
           Compress-Archive -Path target\release\peticiones.exe, README.md, LICENSE -DestinationPath "dist\peticiones-$env:VERSION-windows-x86_64.zip"
+          # Instalador (Inno Setup, windows/peticiones.iss): lo usan install.ps1 y el actualizador.
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          & $iscc "/DAppVersion=$env:VERSION" windows\peticiones.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item target\instalador\*.exe dist\
 
       - uses: actions/upload-artifact@v4
         with:
@@ -98,6 +113,7 @@ jobs:
           path: |
             dist/*.tar.gz
             dist/*.zip
+            dist/*.exe
 
   publish:
     needs: build
@@ -116,7 +132,7 @@ jobs:
           notes="Prototipo de peticiones: cliente HTTP/SOAP con espacios compartibles como carpetas.
 
           - **macOS** (Apple Silicon e Intel): descarga \`peticiones-*-macos-universal.zip\`, descomprímelo y mueve *Peticiones.app* a Aplicaciones. No está firmada: la primera vez usa clic derecho → Abrir, o \`xattr -dr com.apple.quarantine /Applications/Peticiones.app\`.
-          - **Windows** 10/11: descomprime \`peticiones-*-windows-x86_64.zip\` y abre \`peticiones.exe\` (SmartScreen: «Más información» → «Ejecutar de todas formas»).
+          - **Windows** 10/11: abre \`peticiones-*-setup.exe\` (o, en PowerShell, \`irm https://raw.githubusercontent.com/airylp/peticiones/main/install.ps1 | iex\`). Versión portátil: \`peticiones-*-windows-x86_64.zip\`. SmartScreen: «Más información» → «Ejecutar de todas formas».
           - **Linux** x86_64: \`tar xzf peticiones-*-linux-x86_64.tar.gz\` y ejecuta \`./peticiones\`."
           if gh release view "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" dist/* --clobber -R "$GITHUB_REPOSITORY"

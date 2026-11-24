@@ -62,9 +62,11 @@ elif [ "$OS" = "Linux" ]; then
     esac
     EXT="tar.gz"
 else
-    fail "$(m 'En Windows descarga el .zip de https://github.com/airylp/peticiones/releases' 'On Windows download the .zip from https://github.com/airylp/peticiones/releases' 'Sous Windows, téléchargez le .zip depuis https://github.com/airylp/peticiones/releases')"
+    fail "$(m 'En Windows usa install.ps1 (PowerShell: irm https://raw.githubusercontent.com/airylp/peticiones/main/install.ps1 | iex) o el instalador de https://github.com/airylp/peticiones/releases' 'On Windows use install.ps1 (PowerShell: irm https://raw.githubusercontent.com/airylp/peticiones/main/install.ps1 | iex) or the installer from https://github.com/airylp/peticiones/releases' "Sous Windows, utilisez install.ps1 (PowerShell : irm https://raw.githubusercontent.com/airylp/peticiones/main/install.ps1 | iex) ou l'installateur de https://github.com/airylp/peticiones/releases")"
 fi
 MARCA="$CONFIG/version-instalada"
+# Tamaños del ícono en el tema hicolor (Linux).
+ICON_SIZES="16 32 64 128 256 512"
 
 # ------------------------------------------------------------ idioma
 # PETICIONES_IDIOMA, el guardado en la sesión de la app o, si hay terminal y no
@@ -122,6 +124,7 @@ desinstalar() {
             rm -rf "$ruta"
         else
             rm -f "$BIN_DIR/peticiones" "$DATA/applications/peticiones.desktop"
+            for t in $ICON_SIZES; do rm -f "$DATA/icons/hicolor/${t}x${t}/apps/peticiones.png"; done
             command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$DATA/applications" 2>/dev/null || true
         fi
         rm -f "$MARCA"
@@ -146,7 +149,9 @@ colocar_app() {
     done
     [ -n "$destino" ] || fail "$(m "No hay permiso para escribir en: $APP_DIRS" "No permission to write to: $APP_DIRS" "Pas de permission d'écriture dans : $APP_DIRS")"
     abierta=0
-    if pgrep -x peticiones >/dev/null 2>&1; then
+    # PETICIONES_NO_CERRAR (lo pone el actualizador de la app): no se cierra la app
+    # abierta; la versión nueva se abre al pulsar «Reiniciar ahora».
+    if [ -z "${PETICIONES_NO_CERRAR:-}" ] && pgrep -x peticiones >/dev/null 2>&1; then
         abierta=1
         osascript -e 'quit app "Peticiones"' >/dev/null 2>&1 || pkill -x peticiones || true
         sleep 1
@@ -167,6 +172,17 @@ colocar_bin() {
     mv "$BIN_DIR/.peticiones.nuevo" "$BIN_DIR/peticiones"
     ruta="$BIN_DIR/peticiones"
     if [ -z "${PETICIONES_DESTINO:-}" ]; then
+        # Ícono (la «P» de cubos) generado por la propia app, escrito de forma atómica.
+        ic="$(mktemp -d)"
+        if "$ruta" --iconset "$ic" 2>/dev/null; then
+            for t in $ICON_SIZES; do
+                case $t in 64) f=icon_32x32@2x.png ;; *) f="icon_${t}x${t}.png" ;; esac
+                d="$DATA/icons/hicolor/${t}x${t}/apps"
+                mkdir -p "$d" && cp "$ic/$f" "$d/.peticiones.png.nuevo" && mv -f "$d/.peticiones.png.nuevo" "$d/peticiones.png"
+            done
+            touch "$DATA/icons/hicolor" 2>/dev/null || true
+        fi
+        rm -rf "$ic"
         mkdir -p "$DATA/applications"
         cat > "$DATA/applications/peticiones.desktop" <<DESKTOP
 [Desktop Entry]
@@ -174,7 +190,7 @@ Type=Application
 Name=Peticiones
 Comment=$(m 'Cliente de peticiones HTTP y SOAP' 'HTTP and SOAP request client' 'Client de requêtes HTTP et SOAP')
 Exec=$ruta
-Icon=applications-internet
+Icon=peticiones
 Terminal=false
 Categories=Development;Network;
 StartupWMClass=peticiones
@@ -189,6 +205,8 @@ terminar() { # terminar versión
     echo "$1" > "$MARCA"
     guardar_idioma
     info "$(m "Instalado $1 en $ruta" "Installed $1 in $ruta" "$1 installé dans $ruta")"
+    # Para el actualizador de la app (no depende del idioma).
+    echo "RUTA_INSTALADA=$ruta"
 }
 
 # ------------------------------------------------------------ instalar (descarga)
@@ -264,13 +282,15 @@ compilar() {
     if [ -d "$CACHE" ] && [ "$(du -sk "$CACHE" | cut -f1)" -gt 3145728 ]; then
         rm -rf "$CACHE" && info "$(m 'Caché de compilación vaciada (pasaba de 3 GB)' 'Build cache emptied (it was over 3 GB)' 'Cache de compilation vidé (il dépassait 3 Go)')"
     fi
-    (cd "$src" && CARGO_TARGET_DIR="$CACHE" cargo build --release --locked) || fail "$(m 'La compilación falló.' 'The build failed.' 'La compilation a échoué.')"
+    (cd "$src" && PETICIONES_COMMIT="$sha" CARGO_TARGET_DIR="$CACHE" cargo build --release --locked) || fail "$(m 'La compilación falló.' 'The build failed.' 'La compilation a échoué.')"
     version="$(sed -n 's/^version *= *"\(.*\)"/\1/p' "$src/Cargo.toml" | head -n 1)"
     etiqueta="$REF${sha:+@$sha}"
     if [ "$OS" = "Darwin" ]; then
         app="$tmp/Peticiones.app"
         mkdir -p "$app/Contents/MacOS"
         cp "$CACHE/release/peticiones" "$app/Contents/MacOS/peticiones"
+        mkdir -p "$app/Contents/Resources"
+        if "$app/Contents/MacOS/peticiones" --iconset "$tmp/peticiones.iconset" && iconutil -c icns "$tmp/peticiones.iconset" -o "$app/Contents/Resources/peticiones.icns"; then :; fi
         cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -279,6 +299,7 @@ compilar() {
   <key>CFBundleDisplayName</key><string>Peticiones</string>
   <key>CFBundleIdentifier</key><string>io.github.airylp.peticiones</string>
   <key>CFBundleExecutable</key><string>peticiones</string>
+  <key>CFBundleIconFile</key><string>peticiones</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$version</string>
   <key>CFBundleVersion</key><string>$version</string>

@@ -241,6 +241,9 @@ pub struct Session {
     pub follow_redirects: Option<bool>,
     #[serde(rename = "verificar_tls", default, skip_serializing_if = "Option::is_none")]
     pub verify_tls: Option<bool>,
+    /// Avisar de versiones nuevas (mira GitHub al abrir y cada 6 horas); `None` = sí.
+    #[serde(rename = "buscar_actualizaciones", default, skip_serializing_if = "Option::is_none")]
+    pub check_updates: Option<bool>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

@@ -177,7 +177,6 @@ pub struct App {
     session: Session,
     session_dirty: bool,
     last_session_save: Instant,
-    message: Option<(String, Instant)>,
     opts: Options,
     /// Modo captura (pruebas): ruta de salida y fotogramas pintados.
     screenshot: Option<String>,
@@ -185,6 +184,13 @@ pub struct App {
     /// Ventana «Acerca de» y textura del logotipo.
     show_about: bool,
     logo: Option<TextureHandle>,
+    /// Ventana «Atajos de teclado».
+    show_keys: bool,
+    /// Actualizar: ventana, comprobación en segundo plano y avisos flotantes.
+    updater: Option<crate::update::Updater>,
+    show_updater: bool,
+    vigia: crate::estilo::Vigia,
+    avisos: crate::estilo::Avisos,
     /// Espacio que se exporta a Postman (mientras se elige el archivo).
     export_dir: Option<PathBuf>,
     /// Descarga en curso de una URL para importar.
@@ -437,12 +443,16 @@ impl App {
             pick: None,
             session_dirty: false,
             last_session_save: Instant::now(),
-            message: None,
             opts,
             screenshot,
             frames: 0,
             show_about: false,
             logo: None,
+            show_keys: false,
+            updater: None,
+            show_updater: false,
+            vigia: Default::default(),
+            avisos: Default::default(),
             export_dir: None,
             fetch: None,
             test_step: 0,
@@ -460,8 +470,36 @@ impl App {
         app
     }
 
+    /// Aviso flotante (común a las tres apps: `estilo::Avisos`).
     fn msg(&mut self, s: impl Into<String>) {
-        self.message = Some((s.into(), Instant::now()));
+        self.avisos.auto(s);
+    }
+
+    fn open_updater(&mut self, ctx: &Context) {
+        let running = self.updater.as_ref().is_some_and(|u| u.stage() == crate::update::Stage::Running);
+        if !running {
+            self.updater = Some(crate::update::Updater::check(ctx.clone()));
+        }
+        self.show_updater = true;
+    }
+
+    fn updater_window(&mut self, ctx: &Context) {
+        let Some(u) = &self.updater else { return };
+        if !self.show_updater {
+            return;
+        }
+        let mut open = true;
+        match crate::estilo::ventana_actualizar(ctx, u, &mut open, None) {
+            crate::estilo::AccionActualizar::Ejecutar => u.run(ctx.clone()),
+            crate::estilo::AccionActualizar::Reiniciar(p) => match crate::update::relaunch_after_exit(&p) {
+                Ok(()) => ctx.send_viewport_cmd(ViewportCommand::Close),
+                Err(e) => self.avisos.error(tf!("No se pudo abrir la versión nueva: {e}", e = e)),
+            },
+            crate::estilo::AccionActualizar::Nada => {}
+        }
+        if !open {
+            self.show_updater = false;
+        }
     }
 
     fn space_of(&self, dir: &Path) -> Option<usize> {
@@ -696,15 +734,50 @@ impl App {
 
     // ------------------------------------------------------------ barra superior
 
+    fn new_space_dialog(&mut self) {
+        let parent = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(|h| PathBuf::from(h).join("peticiones").display().to_string()).unwrap_or_default();
+        self.dialog = Some(Dialog::NewSpace { name: String::new(), parent });
+    }
+
+    fn import_dialog(&mut self) {
+        let target = self.active.map(|a| self.tabs[a].space.clone()).or_else(|| self.spaces.first().map(|s| s.dir.clone()));
+        self.dialog = Some(Dialog::Import(ImportDialog::new(target)));
+    }
+
+    /// Barra de estado (común: atajos y «Acerca de» a la derecha): espacios,
+    /// entorno y archivo de la petición activa.
+    fn status_bar(&mut self, ui: &mut Ui) {
+        let active = self.active.and_then(|a| self.tabs.get(a)).map(|t| (t.path.clone(), t.space.clone()));
+        let n = self.spaces.len();
+        let env = active.as_ref().and_then(|(_, sp)| self.space_of(sp)).and_then(|i| self.spaces[i].env.clone());
+        let mut copied = false;
+        crate::estilo::barra_estado(ui, &mut self.show_keys, &mut self.show_about, |ui| {
+            ui.small(tf!("{n} espacios", n = n));
+            if let Some(e) = env {
+                ui.separator();
+                ui.small(tf!("Entorno: {e}", e = e));
+            }
+            if let Some((path, _)) = active {
+                ui.separator();
+                let p = path.display().to_string();
+                if ui.add(Label::new(RichText::new(&p).small().weak()).sense(Sense::click()).truncate()).on_hover_text(t!("Archivo de la petición · clic: copiar la ruta")).clicked() {
+                    ui.ctx().copy_text(p);
+                    copied = true;
+                }
+            }
+        });
+        if copied {
+            self.avisos.info(t!("Ruta copiada"));
+        }
+    }
+
     fn toolbar(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             if ui.add(IconButton::new(Icon::Plus, Tone::File).label(t!("Espacio"))).on_hover_text(t!("Crear un espacio nuevo")).clicked() {
-                let parent = std::env::var_os("HOME").map(|h| PathBuf::from(h).join("peticiones").display().to_string()).unwrap_or_default();
-                self.dialog = Some(Dialog::NewSpace { name: String::new(), parent });
+                self.new_space_dialog();
             }
             if ui.add(IconButton::new(Icon::Download, Tone::File).label(t!("Importar…"))).on_hover_text(t!("curl, Postman, OpenAPI/Swagger o WSDL")).clicked() {
-                let target = self.active.map(|a| self.tabs[a].space.clone()).or_else(|| self.spaces.first().map(|s| s.dir.clone()));
-                self.dialog = Some(Dialog::Import(ImportDialog::new(target)));
+                self.import_dialog();
             }
             if ui.add(IconButton::new(Icon::Open, Tone::File).label(t!("Abrir…"))).on_hover_text(t!("Abrir una carpeta de espacio (por ejemplo, un repositorio clonado)")).clicked() {
                 self.pick_folder(Pick::OpenSpace, ui.ctx());
@@ -734,14 +807,18 @@ impl App {
                 if ui.add(IconButton::new(Icon::Gear, Tone::Neutral).selected(matches!(self.dialog, Some(Dialog::Settings)))).on_hover_text(t!("Ajustes")).clicked() {
                     self.dialog = if matches!(self.dialog, Some(Dialog::Settings)) { None } else { Some(Dialog::Settings) };
                 }
-                if ui.add(IconButton::new(Icon::Info, Tone::Neutral).selected(self.show_about)).on_hover_text(t!("Acerca de peticiones")).clicked() {
-                    self.show_about = !self.show_about;
-                }
-                ui.separator();
-                if let Some((m, at)) = &self.message {
-                    if at.elapsed() < Duration::from_secs(6) {
-                        ui.label(RichText::new(m).italics());
-                        ui.ctx().request_repaint_after(Duration::from_secs(6) - at.elapsed());
+                if crate::update::SUPPORTED {
+                    let nueva = self.vigia.nueva(self.updater.as_ref());
+                    if crate::estilo::boton_actualizar(ui, self.show_updater, nueva.as_deref()) {
+                        let ctx = ui.ctx().clone();
+                        if nueva.is_some() && self.updater.is_some() {
+                            self.show_updater = true;
+                        } else if nueva.is_some() {
+                            self.updater = self.vigia.comprobacion.take();
+                            self.show_updater = true;
+                        } else {
+                            self.open_updater(&ctx);
+                        }
                     }
                 }
             });
@@ -887,9 +964,19 @@ impl App {
 
     fn editor(&mut self, ui: &mut Ui) {
         let Some(i) = self.active else {
-            ui.centered_and_justified(|ui| {
-                ui.weak(t!("Abre una petición del panel o crea una nueva (clic derecho en el espacio)."));
-            });
+            let logo = crate::estilo::logo(ui.ctx(), &mut self.logo);
+            let acciones = [
+                (Icon::Plus, t!("Nuevo espacio…"), t!("Crear un espacio nuevo")),
+                (Icon::Download, t!("Importar…"), t!("curl, Postman, OpenAPI/Swagger o WSDL")),
+                (Icon::Open, t!("Abrir carpeta…"), t!("Abrir una carpeta de espacio (por ejemplo, un repositorio clonado)")),
+            ];
+            let pie = if self.spaces.is_empty() { None } else { Some(t!("Abre una petición del panel o crea una nueva (clic derecho en el espacio).")) };
+            match crate::estilo::bienvenida(ui, &logo, &acciones, pie) {
+                Some(0) => self.new_space_dialog(),
+                Some(1) => self.import_dialog(),
+                Some(2) => self.pick_folder(Pick::OpenSpace, ui.ctx()),
+                _ => {}
+            }
             return;
         };
         let ctx = ui.ctx().clone();
@@ -937,7 +1024,7 @@ impl App {
                     do_send = true;
                 }
                 let _ = send_w;
-                let b = ui.add_enabled(!busy, IconButton::new(Icon::Send, Tone::Live).label(if busy { t!("Enviando…") } else { t!("Enviar") }));
+                let b = ui.add_enabled(!busy, IconButton::new(Icon::Send, Tone::Live).label(if busy { t!("Enviando…") } else { t!("Enviar") }).framed());
                 if b.on_hover_text("Ctrl+Enter").clicked() {
                     do_send = true;
                 }
@@ -989,7 +1076,7 @@ impl App {
                             changed |= pairs_editor(ui, "form", &mut t.req.body.fields, t!("campo"), t!("valor"));
                         }
                         k => {
-                            if matches!(k, BodyKind::Json | BodyKind::Xml | BodyKind::Soap11 | BodyKind::Soap12) && ui.small_button(t!("✨ Formatear")).clicked() {
+                            if matches!(k, BodyKind::Json | BodyKind::Xml | BodyKind::Soap11 | BodyKind::Soap12) && ui.add(IconButton::new(Icon::Sparkle, Tone::Tool).label(t!("Formatear")).small()).clicked() {
                                 let r = if k == BodyKind::Json { beautify::format_json(&t.req.body.text, "  ") } else { beautify::format_xml(&t.req.body.text, "  ", false) };
                                 match r {
                                     Ok(s) => {
@@ -1340,7 +1427,7 @@ impl App {
                     ui.weak(t!("Pega un comando curl, una colección o entorno de Postman, una especificación OpenAPI/Swagger (JSON o YAML) o un WSDL; o elige un archivo o una URL."));
                     ui.add_space(4.0);
                     ui.horizontal(|ui| {
-                        if ui.button(t!("📄 Archivo…")).clicked() {
+                        if ui.add(IconButton::new(Icon::Open, Tone::File).label(t!("Archivo…"))).clicked() {
                             pick = Some(Pick::ImportFile);
                         }
                         ui.label(t!("o URL:"));
@@ -1464,7 +1551,8 @@ impl App {
             }
             Dialog::Settings => {
                 let mut open = true;
-                let version = crate::estilo::Version { etiqueta: env!("CARGO_PKG_VERSION"), actualizable: false };
+                let label = crate::update::version_label();
+                let version = crate::estilo::Version { etiqueta: &label, actualizable: crate::update::SUPPORTED };
                 let mut theme = match self.session.theme.as_deref() {
                     Some("claro") => ThemePreference::Light,
                     Some("oscuro") => ThemePreference::Dark,
@@ -1486,6 +1574,15 @@ impl App {
                                 ThemePreference::System => None,
                             };
                             self.session_dirty = true;
+                        }
+                        if crate::update::SUPPORTED {
+                            fila(ui, t!("Actualizaciones"), None, |ui| {
+                                let mut on = self.session.check_updates.unwrap_or(true);
+                                if ui.checkbox(&mut on, t!("Avisar de versiones nuevas (punto verde en ⬇; mira GitHub al abrir y cada 6 horas)")).changed() {
+                                    self.session.check_updates = (!on).then_some(false);
+                                    self.session_dirty = true;
+                                }
+                            });
                         }
                     });
                     seccion(ui, t!("Envío"));
@@ -1512,6 +1609,9 @@ impl App {
                         });
                     });
                 });
+                if accion == crate::estilo::Accion::BuscarActualizaciones {
+                    self.open_updater(ctx);
+                }
                 if accion == crate::estilo::Accion::Restablecer {
                     let d = Options::default();
                     self.opts.timeout = d.timeout;
@@ -1522,6 +1622,7 @@ impl App {
                     self.session.timeout_secs = None;
                     self.session.follow_redirects = None;
                     self.session.verify_tls = None;
+                    self.session.check_updates = None;
                     ctx.set_theme(ThemePreference::System);
                     crate::i18n::set(crate::i18n::system().unwrap_or(crate::i18n::Lang::Es));
                     self.session_dirty = true;
@@ -1535,7 +1636,14 @@ impl App {
             self.dialog = Some(d);
         }
         if ctx.input(|i| i.key_pressed(Key::Escape)) {
-            self.dialog = None;
+            // Escape cierra lo de delante: diálogo, atajos o actualizar.
+            if self.dialog.is_some() {
+                self.dialog = None;
+            } else if self.show_keys {
+                self.show_keys = false;
+            } else if self.show_updater && !self.updater.as_ref().is_some_and(|u| u.stage() == crate::update::Stage::Running) {
+                self.show_updater = false;
+            }
         }
     }
 
@@ -1671,10 +1779,14 @@ impl App {
         }
         let logo = crate::estilo::logo(ctx, &mut self.logo);
         let config = store::config_dir().map(|d| d.display().to_string()).unwrap_or_default();
-        let version = crate::estilo::Version { etiqueta: env!("CARGO_PKG_VERSION"), actualizable: false };
-        crate::estilo::acerca(ctx, &mut self.show_about, &logo, &version, |ui| {
+        let label = crate::update::version_label();
+        let version = crate::estilo::Version { etiqueta: &label, actualizable: crate::update::SUPPORTED };
+        if crate::estilo::acerca(ctx, &mut self.show_about, &logo, &version, |ui| {
             crate::estilo::fila_carpeta(ui, t!("Configuración"), &config);
-        });
+        }) == crate::estilo::Accion::BuscarActualizaciones
+        {
+            self.open_updater(ctx);
+        }
     }
 
     fn screenshot_step(&mut self, ctx: &Context) {
@@ -1683,6 +1795,10 @@ impl App {
         // PETICIONES_ACERCA=1 / PETICIONES_AJUSTES=1: abre «Acerca de» / «Ajustes».
         if self.frames == 3 {
             self.show_about = std::env::var_os("PETICIONES_ACERCA").is_some();
+            self.show_keys = std::env::var_os("PETICIONES_ATAJOS").is_some();
+            if let Ok(m) = std::env::var("PETICIONES_AVISO") {
+                self.msg(m);
+            }
             if std::env::var_os("PETICIONES_AJUSTES").is_some() {
                 self.dialog = Some(Dialog::Settings);
             }
@@ -1881,7 +1997,7 @@ fn space_settings_ui(ui: &mut Ui, file: &mut SpaceFile, secrets: &mut Secrets, e
                 for (i, e) in file.envs.iter().enumerate() {
                     ui.selectable_value(env_sel, i, &e.name);
                 }
-                if ui.button(t!("＋ Entorno")).clicked() {
+                if ui.add(IconButton::new(Icon::Plus, Tone::File).label(t!("Entorno"))).clicked() {
                     file.envs.push(Environment { name: tf!("entorno {n}", n = file.envs.len() + 1), vars: vec![] });
                     *env_sel = file.envs.len() - 1;
                 }
@@ -2029,11 +2145,20 @@ impl eframe::App for App {
                 self.close_tab(a);
             }
         }
+        let (settings_key, keys_key) = crate::estilo::atajos_comunes(&ctx);
+        if settings_key {
+            self.dialog = if matches!(self.dialog, Some(Dialog::Settings)) { None } else { Some(Dialog::Settings) };
+        }
+        if keys_key {
+            self.show_keys = !self.show_keys;
+        }
+        self.vigia.tick(&ctx, self.session.check_updates.unwrap_or(true) && self.screenshot.is_none());
         Panel::top("toolbar").show(ui, |ui| {
             ui.add_space(2.0);
             self.toolbar(ui);
             ui.add_space(2.0);
         });
+        self.status_bar(ui);
         Panel::left("sidebar").resizable(true).default_size(250.0).min_size(160.0).show(ui, |ui| self.sidebar(ui));
         CentralPanel::default().show(ui, |ui| {
             if !self.tabs.is_empty() {
@@ -2044,6 +2169,21 @@ impl eframe::App for App {
         });
         self.dialogs(&ctx);
         self.about_window(&ctx);
+        self.updater_window(&ctx);
+        crate::estilo::ventana_atajos(
+            &ctx,
+            &mut self.show_keys,
+            &[(
+                t!("Peticiones"),
+                vec![
+                    (crate::estilo::tecla("Ctrl+Enter"), t!("Enviar la petición")),
+                    (crate::estilo::tecla("Ctrl+S"), t!("Guardar la petición")),
+                    (crate::estilo::tecla("Ctrl+W"), t!("Cerrar la pestaña")),
+                    (t!("Pegar un curl en la URL").to_string(), t!("Lo convierte en petición")),
+                ],
+            )],
+        );
+        self.avisos.mostrar(&ctx);
         if ctx.input(|i| i.viewport().close_requested()) {
             for i in 0..self.tabs.len() {
                 if self.tabs[i].req != self.tabs[i].saved {

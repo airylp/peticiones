@@ -238,3 +238,54 @@ Envío	Sending	Envoi
 Espacio	Space	Espace
 Importar…	Import…	Importer…
 Variables	Variables	Variables
+Actualizar {app}	Update {app}	Mettre à jour {app}
+Versión instalada: {v}	Installed version: {v}	Version installée : {v}
+Buscando la última versión en GitHub…	Looking for the latest version on GitHub…	Recherche de la dernière version sur GitHub…
+✔ Ya tienes la última versión ({v}).	✔ You already have the latest version ({v}).	✔ Vous avez déjà la dernière version ({v}).
+Reinstalar de todos modos	Reinstall anyway	Réinstaller quand même
+Hay una versión nueva: {v}	A new version is available: {v}	Une nouvelle version est disponible : {v}
+Se descarga el instalador; al reiniciar, {app} se cierra, se instala la versión nueva y vuelve a abrirse.	The installer is downloaded; on restart, {app} closes, the new version is installed and it opens again.	L'installateur est téléchargé ; au redémarrage, {app} se ferme, la nouvelle version s'installe et se rouvre.
+Se descarga el código, se compila (la primera vez tarda unos minutos) y se reemplaza la app instalada. Puedes seguir usando {app} mientras tanto.	The source is downloaded, built (the first time takes a few minutes) and the installed app is replaced. You can keep using {app} meanwhile.	Le code est téléchargé, compilé (la première fois prend quelques minutes) et l'app installée est remplacée. Vous pouvez continuer à utiliser {app} pendant ce temps.
+Se descarga la versión publicada y se reemplaza la app instalada. Puedes seguir usando {app} mientras tanto.	The published version is downloaded and replaces the installed app. You can keep using {app} meanwhile.	La version publiée est téléchargée et remplace l'app installée. Vous pouvez continuer à utiliser {app} pendant ce temps.
+Actualizar ahora	Update now	Mettre à jour maintenant
+Actualizando… (puedes seguir trabajando)	Updating… (you can keep working)	Mise à jour… (vous pouvez continuer à travailler)
+✔ Versión nueva instalada.	✔ New version installed.	✔ Nouvelle version installée.
+Reiniciar ahora	Restart now	Redémarrer maintenant
+o úsala la próxima vez que abras {app}	or use it next time you open {app}	ou utilisez-la la prochaine fois que vous ouvrirez {app}
+No se pudo actualizar: {e}	Could not update: {e}	Impossible de mettre à jour : {e}
+Reintentar	Retry	Réessayer
+Registro:	Log:	Journal :
+Hay una versión nueva ({v}): clic para actualizar	A new version is available ({v}): click to update	Une nouvelle version est disponible ({v}) : cliquez pour mettre à jour
+Buscar actualizaciones · versión {v}	Check for updates · version {v}	Rechercher des mises à jour · version {v}
+Atajos de teclado	Keyboard shortcuts	Raccourcis clavier
+Cerrar la ventana de delante	Close the front window	Fermer la fenêtre au premier plan
+Acerca de {app}	About {app}	À propos de {app}
+Atajos de teclado (F1)	Keyboard shortcuts (F1)	Raccourcis clavier (F1)
+no se pudo	could not	impossible
+Clic para cerrar	Click to close	Cliquer pour fermer
+Abrir carpeta…	Open folder…	Ouvrir un dossier…
+Actualizaciones	Updates	Mises à jour
+Archivo de la petición · clic: copiar la ruta	Request file · click: copy the path	Fichier de la requête · clic : copier le chemin
+Avisar de versiones nuevas (punto verde en ⬇; mira GitHub al abrir y cada 6 horas)	Notify about new versions (green dot on ⬇; checks GitHub at startup and every 6 hours)	Signaler les nouvelles versions (point vert sur ⬇ ; consulte GitHub au démarrage et toutes les 6 heures)
+Cerrar la pestaña	Close the tab	Fermer l'onglet
+Entorno: {e}	Environment: {e}	Environnement : {e}
+Enviar la petición	Send the request	Envoyer la requête
+Guardar la petición	Save the request	Enregistrer la requête
+Lo convierte en petición	Turns it into a request	La transforme en requête
+No se pudo abrir la versión nueva: {e}	Could not open the new version: {e}	Impossible d'ouvrir la nouvelle version : {e}
+Nuevo espacio…	New space…	Nouvel espace…
+Pegar un curl en la URL	Paste a curl command into the URL	Coller une commande curl dans l'URL
+Peticiones	Requests	Requêtes
+Ruta copiada	Path copied	Chemin copié
+falló (mira el registro)	failed (see the log)	échec (voir le journal)
+no hay instalador publicado	no published installer	aucun installateur publié
+no se pudo consultar GitHub: {e}	could not query GitHub: {e}	impossible d’interroger GitHub : {e}
+no se pudo descargar: {e}	could not download: {e}	téléchargement impossible : {e}
+no se pudo ejecutar curl: {e}	could not run curl: {e}	impossible d'exécuter curl : {e}
+no se pudo iniciar: {e}	could not start: {e}	impossible de démarrer : {e}
+respuesta inesperada de GitHub	unexpected response from GitHub	réponse inattendue de GitHub
+terminó sin instalar la app	finished without installing the app	terminé sans installer l'app
+{n} espacios	{n} spaces	{n} espaces
+{v} (compilación local)	{v} (local build)	{v} (compilation locale)
+Archivo…	File…	Fichier…
+Entorno	Environment	Environnement

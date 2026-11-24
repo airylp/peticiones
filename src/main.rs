@@ -13,6 +13,7 @@ mod icons;
 mod import;
 mod model;
 mod store;
+mod update;
 mod vars;
 
 /// Identidad de peticiones para los módulos comunes (logotipo, «Acerca de»…).
