@@ -54,5 +54,5 @@ fn main() -> eframe::Result {
         persist_window: !testing,
         ..Default::default()
     };
-    eframe::run_native("peticiones", options, Box::new(|cc| Ok(Box::new(app::App::new(cc)))))
+    estilo::arrancar("peticiones", options, Box::new(|cc| Ok(Box::new(app::App::new(cc)))))
 }

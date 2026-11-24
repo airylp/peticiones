@@ -844,7 +844,7 @@ impl App {
                 });
             }
             for (si, s) in self.spaces.iter_mut().enumerate() {
-                let head = ui.add(Button::new(RichText::new(format!("{} {}", if s.expanded { "▾" } else { "▸" }, s.file.name)).strong()).frame(false).wrap_mode(TextWrapMode::Truncate));
+                let head = ui.add(Button::new(RichText::new(format!("{} {}", if s.expanded { "⏷" } else { "⏵" }, s.file.name)).strong()).frame(false).wrap_mode(TextWrapMode::Truncate));
                 if head.clicked() {
                     s.expanded = !s.expanded;
                 }
