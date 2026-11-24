@@ -2,6 +2,7 @@
 //! editor y la respuesta abajo.
 
 use crate::beautify;
+use crate::icons::{Icon, IconButton, Tone};
 use crate::http::{self, Options, Outcome};
 use crate::model::{Auth, BodyKind, Environment, KeyPlace, METHODS, OAuthFlow, Pair, Request, SpaceFile, Var};
 use crate::store::{self, Node, Secrets, Session, SessionSpace};
@@ -181,6 +182,9 @@ pub struct App {
     /// Modo captura (pruebas): ruta de salida y fotogramas pintados.
     screenshot: Option<String>,
     frames: u32,
+    /// Ventana «Acerca de» y textura del logotipo.
+    show_about: bool,
+    logo: Option<TextureHandle>,
     /// Espacio que se exporta a Postman (mientras se elige el archivo).
     export_dir: Option<PathBuf>,
     /// Descarga en curso de una URL para importar.
@@ -414,6 +418,7 @@ impl App {
             Some("oscuro") => ThemePreference::Dark,
             _ => ThemePreference::System,
         });
+        crate::estilo::aplicar(&cc.egui_ctx);
         if let Ok(t) = std::env::var("PETICIONES_TEMA") {
             cc.egui_ctx.set_theme(if t == "oscuro" { ThemePreference::Dark } else { ThemePreference::Light });
         }
@@ -436,6 +441,8 @@ impl App {
             opts,
             screenshot,
             frames: 0,
+            show_about: false,
+            logo: None,
             export_dir: None,
             fetch: None,
             test_step: 0,
@@ -691,15 +698,15 @@ impl App {
 
     fn toolbar(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
-            if ui.button(t!("＋ Espacio")).on_hover_text(t!("Crear un espacio nuevo")).clicked() {
+            if ui.add(IconButton::new(Icon::Plus, Tone::File).label(t!("Espacio"))).on_hover_text(t!("Crear un espacio nuevo")).clicked() {
                 let parent = std::env::var_os("HOME").map(|h| PathBuf::from(h).join("peticiones").display().to_string()).unwrap_or_default();
                 self.dialog = Some(Dialog::NewSpace { name: String::new(), parent });
             }
-            if ui.button(t!("⇩ Importar…")).on_hover_text(t!("curl, Postman, OpenAPI/Swagger o WSDL")).clicked() {
+            if ui.add(IconButton::new(Icon::Download, Tone::File).label(t!("Importar…"))).on_hover_text(t!("curl, Postman, OpenAPI/Swagger o WSDL")).clicked() {
                 let target = self.active.map(|a| self.tabs[a].space.clone()).or_else(|| self.spaces.first().map(|s| s.dir.clone()));
                 self.dialog = Some(Dialog::Import(ImportDialog::new(target)));
             }
-            if ui.button(t!("📂 Abrir…")).on_hover_text(t!("Abrir una carpeta de espacio (por ejemplo, un repositorio clonado)")).clicked() {
+            if ui.add(IconButton::new(Icon::Open, Tone::File).label(t!("Abrir…"))).on_hover_text(t!("Abrir una carpeta de espacio (por ejemplo, un repositorio clonado)")).clicked() {
                 self.pick_folder(Pick::OpenSpace, ui.ctx());
             }
             ui.separator();
@@ -718,15 +725,19 @@ impl App {
                 if changed {
                     self.session_dirty = true;
                 }
-                if ui.button("⚙").on_hover_text(t!("Variables, entornos y autenticación del espacio")).clicked() {
+                if ui.add(IconButton::new(Icon::Detail, Tone::Tool).label(t!("Variables"))).on_hover_text(t!("Variables, entornos y autenticación del espacio")).clicked() {
                     let s = &self.spaces[si];
                     self.dialog = Some(Dialog::SpaceSettings { dir: s.dir.clone(), file: s.file.clone(), secrets: s.secrets.clone(), env_sel: 0 });
                 }
             }
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if ui.button("☰").on_hover_text(t!("Ajustes")).clicked() {
-                    self.dialog = Some(Dialog::Settings);
+                if ui.add(IconButton::new(Icon::Gear, Tone::Neutral).selected(matches!(self.dialog, Some(Dialog::Settings)))).on_hover_text(t!("Ajustes")).clicked() {
+                    self.dialog = if matches!(self.dialog, Some(Dialog::Settings)) { None } else { Some(Dialog::Settings) };
                 }
+                if ui.add(IconButton::new(Icon::Info, Tone::Neutral).selected(self.show_about)).on_hover_text(t!("Acerca de peticiones")).clicked() {
+                    self.show_about = !self.show_about;
+                }
+                ui.separator();
                 if let Some((m, at)) = &self.message {
                     if at.elapsed() < Duration::from_secs(6) {
                         ui.label(RichText::new(m).italics());
@@ -925,7 +936,8 @@ impl App {
                 if url.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter)) {
                     do_send = true;
                 }
-                let b = ui.add_enabled(!busy, Button::new(RichText::new(if busy { t!("Enviando…") } else { t!("Enviar") }).strong()).min_size(vec2(send_w, 0.0)));
+                let _ = send_w;
+                let b = ui.add_enabled(!busy, IconButton::new(Icon::Send, Tone::Live).label(if busy { t!("Enviando…") } else { t!("Enviar") }));
                 if b.on_hover_text("Ctrl+Enter").clicked() {
                     do_send = true;
                 }
@@ -1452,57 +1464,68 @@ impl App {
             }
             Dialog::Settings => {
                 let mut open = true;
-                Window::new(t!("Ajustes")).open(&mut open).collapsible(false).resizable(false).show(ctx, |ui| {
-                    Grid::new("settings").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
-                        ui.label(t!("Tema"));
-                        ui.horizontal(|ui| {
-                            let cur = self.session.theme.clone();
-                            for (v, l) in [(None, t!("Sistema")), (Some("claro"), t!("Claro")), (Some("oscuro"), t!("Oscuro"))] {
-                                if ui.selectable_label(cur.as_deref() == v, l).clicked() {
-                                    self.session.theme = v.map(String::from);
-                                    ctx.set_theme(match v {
-                                        Some("claro") => ThemePreference::Light,
-                                        Some("oscuro") => ThemePreference::Dark,
-                                        _ => ThemePreference::System,
-                                    });
-                                    self.session_dirty = true;
-                                }
+                let version = crate::estilo::Version { etiqueta: env!("CARGO_PKG_VERSION"), actualizable: false };
+                let mut theme = match self.session.theme.as_deref() {
+                    Some("claro") => ThemePreference::Light,
+                    Some("oscuro") => ThemePreference::Dark,
+                    _ => ThemePreference::System,
+                };
+                let accion = crate::estilo::ventana_ajustes(ctx, &mut open, &version, |ui| {
+                    use crate::estilo::{fila, rejilla, seccion};
+                    seccion(ui, t!("General"));
+                    rejilla(ui, "ajustes_general", |ui| {
+                        if let Some(l) = crate::estilo::fila_idioma(ui) {
+                            crate::i18n::set(l);
+                            self.session.lang = Some(l.code().into());
+                            self.session_dirty = true;
+                        }
+                        if crate::estilo::fila_tema(ui, &mut theme) {
+                            self.session.theme = match theme {
+                                ThemePreference::Light => Some("claro".into()),
+                                ThemePreference::Dark => Some("oscuro".into()),
+                                ThemePreference::System => None,
+                            };
+                            self.session_dirty = true;
+                        }
+                    });
+                    seccion(ui, t!("Envío"));
+                    rejilla(ui, "ajustes_envio", |ui| {
+                        fila(ui, t!("Tiempo de espera"), None, |ui| {
+                            let mut secs = self.opts.timeout.as_secs();
+                            if ui.add(DragValue::new(&mut secs).range(1..=3600).suffix(" s")).changed() {
+                                self.opts.timeout = Duration::from_secs(secs);
+                                self.session.timeout_secs = Some(secs);
+                                self.session_dirty = true;
                             }
                         });
-                        ui.end_row();
-                        ui.label(t!("Idioma"));
-                        ui.horizontal(|ui| {
-                            for l in crate::i18n::Lang::ALL {
-                                if ui.selectable_label(crate::i18n::get() == l, l.name()).clicked() {
-                                    crate::i18n::set(l);
-                                    self.session.lang = Some(l.code().into());
-                                    self.session_dirty = true;
-                                }
+                        fila(ui, t!("Redirecciones"), None, |ui| {
+                            if ui.checkbox(&mut self.opts.follow_redirects, t!("Seguirlas")).changed() {
+                                self.session.follow_redirects = Some(self.opts.follow_redirects);
+                                self.session_dirty = true;
                             }
                         });
-                        ui.end_row();
-                        ui.label(t!("Tiempo de espera"));
-                        let mut secs = self.opts.timeout.as_secs();
-                        if ui.add(DragValue::new(&mut secs).range(1..=3600).suffix(" s")).changed() {
-                            self.opts.timeout = Duration::from_secs(secs);
-                            self.session.timeout_secs = Some(secs);
-                            self.session_dirty = true;
-                        }
-                        ui.end_row();
-                        ui.label(t!("Redirecciones"));
-                        if ui.checkbox(&mut self.opts.follow_redirects, t!("Seguirlas")).changed() {
-                            self.session.follow_redirects = Some(self.opts.follow_redirects);
-                            self.session_dirty = true;
-                        }
-                        ui.end_row();
-                        ui.label("TLS");
-                        if ui.checkbox(&mut self.opts.verify_tls, t!("Verificar certificados")).changed() {
-                            self.session.verify_tls = Some(self.opts.verify_tls);
-                            self.session_dirty = true;
-                        }
-                        ui.end_row();
+                        fila(ui, "TLS", None, |ui| {
+                            if ui.checkbox(&mut self.opts.verify_tls, t!("Verificar certificados")).changed() {
+                                self.session.verify_tls = Some(self.opts.verify_tls);
+                                self.session_dirty = true;
+                            }
+                        });
                     });
                 });
+                if accion == crate::estilo::Accion::Restablecer {
+                    let d = Options::default();
+                    self.opts.timeout = d.timeout;
+                    self.opts.follow_redirects = d.follow_redirects;
+                    self.opts.verify_tls = d.verify_tls;
+                    self.session.theme = None;
+                    self.session.lang = None;
+                    self.session.timeout_secs = None;
+                    self.session.follow_redirects = None;
+                    self.session.verify_tls = None;
+                    ctx.set_theme(ThemePreference::System);
+                    crate::i18n::set(crate::i18n::system().unwrap_or(crate::i18n::Lang::Es));
+                    self.session_dirty = true;
+                }
                 if !open {
                     keep = false;
                 }
@@ -1641,9 +1664,29 @@ impl App {
 
     /// Modo captura: tras unos fotogramas guarda la ventana (ancho, alto u32 LE
     /// + RGBA) y sale. PETICIONES_ENVIAR=1 envía la petición activa antes.
+    /// «Acerca de» (ventana común a las tres aplicaciones: `estilo::acerca`).
+    fn about_window(&mut self, ctx: &Context) {
+        if !self.show_about {
+            return;
+        }
+        let logo = crate::estilo::logo(ctx, &mut self.logo);
+        let config = store::config_dir().map(|d| d.display().to_string()).unwrap_or_default();
+        let version = crate::estilo::Version { etiqueta: env!("CARGO_PKG_VERSION"), actualizable: false };
+        crate::estilo::acerca(ctx, &mut self.show_about, &logo, &version, |ui| {
+            crate::estilo::fila_carpeta(ui, t!("Configuración"), &config);
+        });
+    }
+
     fn screenshot_step(&mut self, ctx: &Context) {
         let Some(path) = self.screenshot.clone() else { return };
         self.frames += 1;
+        // PETICIONES_ACERCA=1 / PETICIONES_AJUSTES=1: abre «Acerca de» / «Ajustes».
+        if self.frames == 3 {
+            self.show_about = std::env::var_os("PETICIONES_ACERCA").is_some();
+            if std::env::var_os("PETICIONES_AJUSTES").is_some() {
+                self.dialog = Some(Dialog::Settings);
+            }
+        }
         if self.frames == 5 && std::env::var_os("PETICIONES_ENVIAR").is_some() {
             if let Some(a) = self.active {
                 self.send(a, ctx);
@@ -2000,6 +2043,7 @@ impl eframe::App for App {
             self.editor(ui);
         });
         self.dialogs(&ctx);
+        self.about_window(&ctx);
         if ctx.input(|i| i.viewport().close_requested()) {
             for i in 0..self.tabs.len() {
                 if self.tabs[i].req != self.tabs[i].saved {

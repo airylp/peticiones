@@ -210,3 +210,31 @@ servidor {n}	server {n}	serveur {n}
 «{n}»: multipart/form-data se importó como formulario (los archivos adjuntos no se admiten aún)	“{n}”: multipart/form-data was imported as a form (file attachments are not supported yet)	«{n}» : multipart/form-data a été importé comme formulaire (les pièces jointes ne sont pas encore prises en charge)
 ⇩ Importar…	⇩ Import…	⇩ Importer…
 📄 Archivo…	📄 File…	📄 Fichier…
+Versión {v}	Version {v}	Version {v}
+⟳ Buscar actualizaciones…	⟳ Check for updates…	⟳ Rechercher des mises à jour…
+↺ Restablecer	↺ Reset	↺ Réinitialiser
+Vuelve a los ajustes predeterminados	Go back to the default settings	Revenir aux réglages par défaut
+Los cambios se aplican y se guardan solos.	Changes are applied and saved automatically.	Les modifications sont appliquées et enregistrées automatiquement.
+Autor	Author	Auteur
+Sitio web	Website	Site web
+Licencia	License	Licence
+MIT · © 2026 {user}	MIT · © 2026 {user}	MIT · © 2026 {user}
+ver	view	voir
+Hecho con	Made with	Fait avec
+Versiones	Releases	Versions
+Reportar un problema	Report a problem	Signaler un problème
+Código fuente	Source code	Code source
+Buscar actualizaciones…	Check for updates…	Rechercher des mises à jour…
+Cerrar	Close	Fermer
+Abrir carpeta	Open folder	Ouvrir le dossier
+Configuración	Configuration	Configuration
+Visor y editor de archivos de varios GB	Viewer and editor for multi-GB files	Visionneuse et éditeur de fichiers de plusieurs Go
+Probador de conexiones JDBC con consola SQL	JDBC connection tester with SQL console	Testeur de connexions JDBC avec console SQL
+Cliente HTTP y SOAP para probar APIs	HTTP and SOAP client for testing APIs	Client HTTP et SOAP pour tester des API
+General	General	Général
+Abrir…	Open…	Ouvrir…
+Acerca de peticiones	About peticiones	À propos de peticiones
+Envío	Sending	Envoi
+Espacio	Space	Espace
+Importar…	Import…	Importer…
+Variables	Variables	Variables
