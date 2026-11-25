@@ -69,7 +69,6 @@ Abrir espacio (carpeta)	Open space (folder)	Ouvrir un espace (dossier)
 Carpeta donde crear el espacio	Folder in which to create the space	Dossier où créer l'espace
 Guardar la respuesta	Save the response	Enregistrer la réponse
 Guardado en {f}	Saved to {f}	Enregistré dans {f}
-＋ Espacio	＋ Space	＋ Espace
 Crear un espacio nuevo	Create a new space	Créer un nouvel espace
 📂 Abrir…	📂 Open…	📂 Ouvrir…
 Abrir una carpeta de espacio (por ejemplo, un repositorio clonado)	Open a space folder (for example, a cloned repository)	Ouvrir un dossier d'espace (par exemple, un dépôt cloné)
@@ -127,7 +126,6 @@ Borrar…	Delete…	Supprimer…
 Variables del espacio	Space variables	Variables de l'espace
 Entornos	Environments	Environnements
 Cada entorno puede redefinir variables (por ejemplo, base en desarrollo y en producción).	Each environment can redefine variables (for example, base in development and in production).	Chaque environnement peut redéfinir des variables (par exemple, base en développement et en production).
-＋ Entorno	＋ Environment	＋ Environnement
 entorno {n}	environment {n}	environnement {n}
 Quitar entorno	Remove environment	Retirer l'environnement
 Autenticación común	Shared authentication	Authentification commune
@@ -292,3 +290,11 @@ Entorno	Environment	Environnement
 Grafito claro	Light graphite	Graphite clair
 Grafito oscuro	Dark graphite	Graphite sombre
 Grafito: paneles en otro gris y separaciones marcadas	Graphite: panels in a different grey and clear separations	Graphite : panneaux d’un autre gris et séparations marquées
+Proyecto	Project	Projet
+Este equipo	This computer	Cet ordinateur
+Dibujo	Rendering	Rendu
+Copiar información	Copy information	Copier les informations
+Versión, sistema y carpetas, para pegarlos al reportar un problema	Version, system and folders, to paste when reporting a problem	Version, système et dossiers, à coller pour signaler un problème
+OpenGL (wgpu no disponible)	OpenGL (wgpu not available)	OpenGL (wgpu indisponible)
+Recuperación	Recovery	Récupération
+Java encontrados	Java found	Java trouvés

@@ -2511,6 +2511,7 @@ version = "0.2.1"
 dependencies = [
  "base64",
  "eframe",
+ "egui",
  "getrandom 0.4.3",
  "md-5",
  "rfd",
