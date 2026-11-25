@@ -419,14 +419,10 @@ impl App {
         if let Some(l) = session.lang.as_deref().and_then(crate::i18n::Lang::from_code).or_else(crate::i18n::system) {
             crate::i18n::set(l);
         }
-        cc.egui_ctx.set_theme(match session.theme.as_deref() {
-            Some("claro") => ThemePreference::Light,
-            Some("oscuro") => ThemePreference::Dark,
-            _ => ThemePreference::System,
-        });
+        crate::estilo::aplicar_tema(&cc.egui_ctx, crate::estilo::Tema::de_clave(session.theme.as_deref().unwrap_or("")));
         crate::estilo::aplicar(&cc.egui_ctx);
         if let Ok(t) = std::env::var("PETICIONES_TEMA") {
-            cc.egui_ctx.set_theme(if t == "oscuro" { ThemePreference::Dark } else { ThemePreference::Light });
+            crate::estilo::aplicar_tema(&cc.egui_ctx, crate::estilo::Tema::de_clave(&t));
         }
         let mut opts = Options::default();
         if let Some(s) = session.timeout_secs {
@@ -1553,11 +1549,7 @@ impl App {
                 let mut open = true;
                 let label = crate::update::version_label();
                 let version = crate::estilo::Version { etiqueta: &label, actualizable: crate::update::SUPPORTED };
-                let mut theme = match self.session.theme.as_deref() {
-                    Some("claro") => ThemePreference::Light,
-                    Some("oscuro") => ThemePreference::Dark,
-                    _ => ThemePreference::System,
-                };
+                let mut theme = crate::estilo::Tema::de_clave(self.session.theme.as_deref().unwrap_or(""));
                 let accion = crate::estilo::ventana_ajustes(ctx, &mut open, &version, |ui| {
                     use crate::estilo::{fila, rejilla, seccion};
                     seccion(ui, t!("General"));
@@ -1568,11 +1560,7 @@ impl App {
                             self.session_dirty = true;
                         }
                         if crate::estilo::fila_tema(ui, &mut theme) {
-                            self.session.theme = match theme {
-                                ThemePreference::Light => Some("claro".into()),
-                                ThemePreference::Dark => Some("oscuro".into()),
-                                ThemePreference::System => None,
-                            };
+                            self.session.theme = theme.clave().map(Into::into);
                             self.session_dirty = true;
                         }
                         if crate::update::SUPPORTED {
@@ -1623,7 +1611,7 @@ impl App {
                     self.session.follow_redirects = None;
                     self.session.verify_tls = None;
                     self.session.check_updates = None;
-                    ctx.set_theme(ThemePreference::System);
+                    crate::estilo::aplicar_tema(ctx, crate::estilo::Tema::Sistema);
                     crate::i18n::set(crate::i18n::system().unwrap_or(crate::i18n::Lang::Es));
                     self.session_dirty = true;
                 }
@@ -2084,7 +2072,9 @@ impl eframe::App for App {
     /// Pruebas: PETICIONES_RATON='x,y;d;u;t:texto;k:Ctrl+S;r' mueve el ratón,
     /// pulsa (d) y suelta (u), escribe, pulsa una tecla o hace clic derecho (r):
     /// un paso por fotograma desde el 10 (solo en modo captura).
-    fn raw_input_hook(&mut self, _ctx: &Context, raw: &mut RawInput) {
+    fn raw_input_hook(&mut self, ctx: &Context, raw: &mut RawInput) {
+        // En macOS, Ctrl hace de Cmd (atajos y copiar/cortar/pegar).
+        crate::estilo::ctrl_mac(ctx, raw);
         if self.screenshot.is_none() || !(10..1000).contains(&self.frames) {
             return;
         }
@@ -2160,7 +2150,7 @@ impl eframe::App for App {
         });
         self.status_bar(ui);
         Panel::left("sidebar").resizable(true).default_size(250.0).min_size(160.0).show(ui, |ui| self.sidebar(ui));
-        CentralPanel::default().show(ui, |ui| {
+        CentralPanel::default().frame(crate::estilo::marco_central(ui.style())).show(ui, |ui| {
             if !self.tabs.is_empty() {
                 self.tabs_strip(ui);
                 ui.separator();
