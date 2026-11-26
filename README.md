@@ -27,7 +27,7 @@ Prototipo en [Releases](https://github.com/airylp/peticiones/releases): macOS (u
 Linux x86_64. Las compilaciones no están firmadas: en macOS ábrela la primera vez con clic derecho →
 Abrir; en Windows, «Más información» → «Ejecutar de todas formas».
 
-![Petición POST con cuerpo JSON (tema grafito oscuro)](docs/peticiones-oscuro.png)
+![Petición POST con cuerpo JSON](docs/peticiones-post.png)
 
 ## Espacios
 
