@@ -3,6 +3,8 @@
 Cliente de peticiones HTTP y SOAP de escritorio (Rust + egui), ligero, para probar APIs y
 compartir colecciones como carpetas de texto.
 
+![peticiones con una respuesta JSON (tema grafito claro)](docs/peticiones-claro.png)
+
 ## Instalar
 
 macOS y Linux (descarga la última versión publicada; vuelve a ejecutarlo para actualizar o desinstalar):
@@ -24,6 +26,8 @@ Si no hay versión publicada para tu equipo (p. ej. Linux ARM), el instalador co
 Prototipo en [Releases](https://github.com/airylp/peticiones/releases): macOS (universal), Windows y
 Linux x86_64. Las compilaciones no están firmadas: en macOS ábrela la primera vez con clic derecho →
 Abrir; en Windows, «Más información» → «Ejecutar de todas formas».
+
+![Petición POST con cuerpo JSON (tema grafito oscuro)](docs/peticiones-oscuro.png)
 
 ## Espacios
 
