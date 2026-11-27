@@ -2507,7 +2507,7 @@ dependencies = [
 
 [[package]]
 name = "peticiones"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "base64",
  "eframe",
